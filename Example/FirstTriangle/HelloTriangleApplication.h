@@ -30,6 +30,8 @@ private:
 
 	void cleanUp();
 
+	bool checkValidationLayerSupport();
+
 private:
 	GLFWwindow*		mWindow;
 	VkInstance		mInstance;

@@ -2,6 +2,14 @@
 #include <iostream>
 const int WIDTH = 800;
 const int HEIGHT = 600;
+const std::vector<const char*> validationLayers = \
+{"VK_LAYER_LUNARG_standard_validation"};
+
+#ifdef NODEBUG
+	const bool enableValidationLayers = false;
+#else
+	const bool enableValidationLayers = true;
+#endif
 
 void HelloTriangleApplication::run()
 {
@@ -57,8 +65,20 @@ void HelloTriangleApplication::createInstance()
 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 	std::cout << "available extensions:" << std::endl;
 
-	for (const auto& extension : extensions) {
+	for (const auto& extension : extensions) 
+	{
 		std::cout << "\t" << extension.extensionName << std::endl;
+	}
+
+	//Common operation in Validation Layer
+	//Checking the values of parameters against the specification to detect misuse
+	//Tracking creation and destruction of objects to find resource leaks
+	//Checking thread safety by tracking the threads that calls originate from
+	//Logging every call and its parameters to the standard output
+	//Tracing Vulkan calls for profiling and replaying
+	if (enableValidationLayers && !checkValidationLayerSupport())
+	{
+		throw std::runtime_error("validation layers requested,but not available!");
 	}
 }
 
@@ -75,4 +95,34 @@ void HelloTriangleApplication::cleanUp()
 	vkDestroyInstance(mInstance, nullptr);
 	glfwDestroyWindow(mWindow);
 	glfwTerminate();
+}
+
+bool HelloTriangleApplication::checkValidationLayerSupport()
+{
+	uint32_t layerCount;
+	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+	std::vector<VkLayerProperties> availableLayers(layerCount);
+	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+	for (const char* layerName : validationLayers)
+	{
+		bool layerFound = false;
+
+		for (const auto &layerProperties : availableLayers)
+		{
+			if(strcmp(layerName,layerProperties.layerName) == 0)
+			{
+				layerFound = true;
+				break;
+			}
+		}
+
+		if(!layerFound)
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
