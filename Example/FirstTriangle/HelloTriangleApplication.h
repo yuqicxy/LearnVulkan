@@ -32,7 +32,21 @@ private:
 
 	bool checkValidationLayerSupport();
 
+	std::vector<const char*> getRequiredExtensions();
+
+	void setupDebugCallback();
+	
+	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance
+		, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo
+		, const VkAllocationCallbacks* pAllocator
+		, VkDebugUtilsMessengerEXT *pCallback);
+
+	void DestroyDebugUtilsMessengerEXT(VkInstance instance
+		,VkDebugUtilsMessengerEXT callback
+		, const VkAllocationCallbacks* pAllocator);
+
 private:
-	GLFWwindow*		mWindow;
-	VkInstance		mInstance;
+	GLFWwindow*							mWindow;
+	VkInstance							mInstance;
+	VkDebugUtilsMessengerEXT			mCallback;
 };
