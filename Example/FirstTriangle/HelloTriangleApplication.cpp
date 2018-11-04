@@ -78,6 +78,7 @@ void HelloTriangleApplication::initVulkan()
 {
 	createInstance();
 	setupDebugCallback();
+	pickPhysicalDevice();
 }
 
 void HelloTriangleApplication::createInstance()
