@@ -9,6 +9,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <stdlib.h>
+#include <optional>
 
 class HelloTriangleApplication
 {
@@ -45,8 +46,28 @@ private:
 		,VkDebugUtilsMessengerEXT callback
 		, const VkAllocationCallbacks* pAllocator);
 
+	void pickPhysicalDevice();
+
+	bool isDeviceSuitable(VkPhysicalDevice device);
+
+	void pickPhysicalDevicebyScore();
+
+	int rateDeviceSuitability(const VkPhysicalDevice &device);
+
+	struct QueueFamily
+	{
+		std::optional<uint32_t> graphicsFamily;
+		bool isComplete()
+		{
+			return graphicsFamily.has_value();
+		}
+	};
+
+	QueueFamily findQueueFamilies(VkPhysicalDevice device);
+
 private:
 	GLFWwindow*							mWindow;
 	VkInstance							mInstance;
+	VkPhysicalDevice					mPhysicalDevice;
 	VkDebugUtilsMessengerEXT			mCallback;
 };
