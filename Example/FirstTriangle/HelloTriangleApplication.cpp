@@ -1,10 +1,14 @@
-#include "HelloTriangleApplication.h"
 #include <iostream>
 #include <map>
+#include <set>
+
+#include "HelloTriangleApplication.h"
+
 const int WIDTH = 800;
 const int HEIGHT = 600;
-const std::vector<const char*> validationLayers = \
-{"VK_LAYER_LUNARG_standard_validation"};
+const std::vector<const char*> validationLayers = {"VK_LAYER_LUNARG_standard_validation"};
+
+const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NODEBUG
 	const bool enableValidationLayers = false;
@@ -78,7 +82,9 @@ void HelloTriangleApplication::initVulkan()
 {
 	createInstance();
 	setupDebugCallback();
+	CreateSurface();
 	pickPhysicalDevice();
+	createLogicalDevice();
 }
 
 void HelloTriangleApplication::createInstance()
@@ -130,6 +136,25 @@ void HelloTriangleApplication::createInstance()
 	}
 }
 
+void HelloTriangleApplication::CreateSurface()
+{
+	//The window surface needs to be created 
+	//right after the instance creation, 
+	//because it can actually influence 
+	//the physical device selection.
+	VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
+	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	surfaceCreateInfo.hwnd = glfwGetWin32Window(mWindow);
+	surfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
+
+	auto CreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(mInstance, "vkCreateWin32SurfaceKHR");
+	if (!CreateWin32SurfaceKHR || CreateWin32SurfaceKHR(mInstance, &surfaceCreateInfo, nullptr, &mSurface) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create window surface!");
+	}
+}
+
+
 void HelloTriangleApplication::mainLoop()
 {
 	while(!glfwWindowShouldClose(mWindow))
@@ -144,6 +169,7 @@ void HelloTriangleApplication::cleanUp()
 	{
 		DestroyDebugUtilsMessengerEXT(mInstance,mCallback, nullptr);
 	}
+	vkDestroyDevice(mDevice, nullptr);
 	vkDestroyInstance(mInstance, nullptr);
 	glfwDestroyWindow(mWindow);
 	glfwTerminate();
@@ -273,16 +299,43 @@ void HelloTriangleApplication::pickPhysicalDevice()
 	}
 }
 
-bool HelloTriangleApplication::isDeviceSuitable(VkPhysicalDevice device)
+bool HelloTriangleApplication::isDeviceSuitable(const VkPhysicalDevice &device)
 {
 	VkPhysicalDeviceProperties deviceProperties;
 	vkGetPhysicalDeviceProperties(device, &deviceProperties);
 	VkPhysicalDeviceFeatures deviceFeatures;
 	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
+	bool extensionSupported = checkDeviceExtensionSupport(device);
+
+	bool swapChainAdequate = false;
+	if (extensionSupported)
+	{
+		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+	}
 	return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
 		&& deviceFeatures.geometryShader
-		&& findQueueFamilies(device).isComplete();
+		&& findQueueFamilies(device).isComplete()
+		&& extensionSupported
+		&& swapChainAdequate;
+}
+
+bool HelloTriangleApplication::checkDeviceExtensionSupport(const VkPhysicalDevice &device)
+{
+	uint32_t extensionCount;
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+	for (const auto &extension : availableExtensions)
+	{
+		requiredExtensions.erase(extension.extensionName);
+	}
+
+	return requiredExtensions.empty();
 }
 
 void HelloTriangleApplication::pickPhysicalDevicebyScore()
@@ -342,7 +395,7 @@ HelloTriangleApplication::QueueFamily HelloTriangleApplication::findQueueFamilie
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
+	
 	int i = 0;
 	for (const auto &familyPropery : queueFamilies)
 	{
@@ -351,9 +404,133 @@ HelloTriangleApplication::QueueFamily HelloTriangleApplication::findQueueFamilie
 			indices.graphicsFamily = i;
 		}
 
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, mSurface, &presentSupport);
+
+		if (familyPropery.queueCount > 0 && presentSupport)
+		{
+			indices.presentFamily = i;
+		}
 		if (indices.isComplete())
 		{
 			break;
 		}
+		i++;
 	}
+	return indices;
+}
+
+void HelloTriangleApplication::createLogicalDevice()
+{
+	//Create Logical Device
+	QueueFamily queueFam = findQueueFamilies(mPhysicalDevice);
+
+	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+
+	std::set<uint32_t> uniqueQueueFamilies = { queueFam.graphicsFamily.value()
+		,queueFam.presentFamily.value() };
+
+	float queuePriority = 1.0f;
+	for (uint32_t queueFamily : uniqueQueueFamilies)
+	{
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = queueFamily;
+		queueCreateInfo.queueCount = 1;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+		queueCreateInfos.push_back(queueCreateInfo);
+	}
+
+
+	//Specify Device Feature
+	VkPhysicalDeviceFeatures deviceFeatures = {};
+	
+	VkDeviceCreateInfo deviceCreateInfo = {};
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+	deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
+	if (enableValidationLayers)
+	{
+		deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+		deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+	}
+	else
+	{
+		deviceCreateInfo.enabledLayerCount = 0;
+	}
+
+	if (vkCreateDevice(mPhysicalDevice, &deviceCreateInfo, nullptr, &mDevice) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create logical device!");
+	}
+
+	vkGetDeviceQueue(mDevice, queueFam.graphicsFamily.value(), 0, &mGraphicsQueue);
+	vkGetDeviceQueue(mDevice, queueFam.presentFamily.value(), 0, &mPresentQueue);
+}
+
+HelloTriangleApplication::SwapChainSupportDetails HelloTriangleApplication::querySwapChainSupport(VkPhysicalDevice device)
+{
+	SwapChainSupportDetails details;
+
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, mSurface, &details.capabilities);
+
+	/*querying the supported surface formats*/
+	uint32_t formatCount;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, &formatCount, nullptr);
+	if (formatCount != 0)
+	{
+		details.formats.resize(formatCount);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, &formatCount, details.formats.data());
+	}
+	
+	uint32_t presentModeCount;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, &presentModeCount, nullptr);
+	if (presentModeCount != 0)
+	{
+		details.presentModes.resize(presentModeCount);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, &formatCount, details.presentModes.data());
+	}
+
+	return details;
+}
+
+VkSurfaceFormatKHR HelloTriangleApplication::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats)
+{
+	/*VkSurfaceFormatKHR entry contains 
+	a format and a colorSpace member.*/
+	/*format member specifies the color channels 
+	and types*/
+	/*The colorSpace member indicates 
+	if the SRGB color space is supported 
+	or not using the VK_COLOR_SPACE_SRGB_NONLINEAR_KHR flag.*/
+	if (availableFormats.size() == 1
+		&& availableFormats[0].format == VK_FORMAT_UNDEFINED)
+	{
+		return	{ VK_FORMAT_B8G8R8A8_UNORM,
+		VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+	}
+
+	for (const auto& availableFormat : availableFormats)
+	{
+		if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM &&
+			availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			return availableFormat;
+	}
+	return availableFormats[0];
+}
+
+VkPresentModeKHR HelloTriangleApplication::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes)
+{
+	VkPresentModeKHR bestMode = VK_PRESENT_MODE_FIFO_KHR;
+	for (const auto &availablePresentMode : availablePresentModes)
+	{
+		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+			return availablePresentMode;
+		else if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+			bestMode =  availablePresentMode;
+	}
+	return bestMode;
 }
