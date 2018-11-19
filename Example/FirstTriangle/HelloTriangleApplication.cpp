@@ -1,7 +1,8 @@
 #include <iostream>
 #include <map>
 #include <set>
-
+#include <limits>
+#include <algorithm>
 #include "HelloTriangleApplication.h"
 
 const int WIDTH = 800;
@@ -16,6 +17,8 @@ const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NA
 	const bool enableValidationLayers = true;
 #endif
 
+#undef max
+#undef min
 //@parameter messageSeverity
 //	VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: Diagnostic message
 //	VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: Informational message like the creation of a resource
@@ -85,6 +88,8 @@ void HelloTriangleApplication::initVulkan()
 	CreateSurface();
 	pickPhysicalDevice();
 	createLogicalDevice();
+	createSwapChain();
+	createImageViews();
 }
 
 void HelloTriangleApplication::createInstance()
@@ -165,10 +170,14 @@ void HelloTriangleApplication::mainLoop()
 
 void HelloTriangleApplication::cleanUp()
 {
+	for (auto imageView : mSwapChainImageViews) {
+		vkDestroyImageView(mDevice, imageView, nullptr);
+	}
 	if (enableValidationLayers) 
 	{
 		DestroyDebugUtilsMessengerEXT(mInstance,mCallback, nullptr);
 	}
+	vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
 	vkDestroyDevice(mDevice, nullptr);
 	vkDestroyInstance(mInstance, nullptr);
 	glfwDestroyWindow(mWindow);
@@ -533,4 +542,99 @@ VkPresentModeKHR HelloTriangleApplication::chooseSwapPresentMode(const std::vect
 			bestMode =  availablePresentMode;
 	}
 	return bestMode;
+}
+
+VkExtent2D HelloTriangleApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilites)
+{
+	if (capabilites.currentExtent.width != std::numeric_limits<uint32_t>::max())
+	{
+		return capabilites.currentExtent;
+	}
+	else
+	{
+		VkExtent2D actualExtent = { WIDTH,HEIGHT };
+		actualExtent.width  = std::max(capabilites.minImageExtent.width  ,std::min(capabilites.maxImageExtent.width, actualExtent.width));
+		actualExtent.height = std::max(capabilites.minImageExtent.height,std::min(capabilites.maxImageExtent.height, actualExtent.height));
+		return actualExtent;
+	}
+
+}
+
+void HelloTriangleApplication::createSwapChain()
+{
+	SwapChainSupportDetails swapChainSupport = querySwapChainSupport(mPhysicalDevice);
+
+	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+	VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+	
+	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
+		imageCount = swapChainSupport.capabilities.maxImageCount;
+	}
+
+	VkSwapchainCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	createInfo.surface = mSurface;
+	createInfo.minImageCount = imageCount;
+	createInfo.imageFormat = surfaceFormat.format;
+	createInfo.imageColorSpace = surfaceFormat.colorSpace;
+	createInfo.imageExtent = extent;
+	createInfo.imageArrayLayers = 1;
+	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	QueueFamily indices = findQueueFamilies(mPhysicalDevice);
+	uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+
+	if (indices.graphicsFamily != indices.presentFamily) {
+		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		createInfo.queueFamilyIndexCount = 2;
+		createInfo.pQueueFamilyIndices = queueFamilyIndices;
+	}
+	else {
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		createInfo.queueFamilyIndexCount = 0; // Optional
+		createInfo.pQueueFamilyIndices = nullptr; // Optional
+	}
+	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	createInfo.presentMode = presentMode;
+	createInfo.clipped = VK_TRUE;
+	createInfo.oldSwapchain = VK_NULL_HANDLE;
+	if (vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapChain) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create swap chain!");
+	}
+
+	vkGetSwapchainImagesKHR(mDevice, mSwapChain, &imageCount, nullptr);
+	mSwapChainImages.resize(imageCount);
+	vkGetSwapchainImagesKHR(mDevice, mSwapChain, &imageCount, mSwapChainImages.data());
+
+	mSwapChainFormat = surfaceFormat.format;
+	mSwapChainExtent = extent;
+}
+
+void HelloTriangleApplication::createImageViews()
+{
+	mSwapChainImageViews.resize(mSwapChainImages.size());
+	for (size_t i = 0;i < mSwapChainImages.size(); ++i)
+	{
+		VkImageViewCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image = mSwapChainImages[i];
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = mSwapChainFormat;
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = 1;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount = 1;
+		if (vkCreateImageView(mDevice, &createInfo, nullptr, &mSwapChainImageViews[i]) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create image views!");
+		}
+	}
+
 }

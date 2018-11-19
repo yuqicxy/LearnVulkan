@@ -117,6 +117,13 @@ private:
 		than standard vertical sync that uses double buffering.
 	*/
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
+
+	/*The swap extent is the resolution of the swap chain images and it's almost always exactly equal to the resolution of the window that we're drawing to.The range of the possible resolutions is defined in the VkSurfaceCapabilitiesKHR structure.*/
+	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilites);
+	
+	void createSwapChain();
+
+	void createImageViews();
 private:
 	GLFWwindow*							mWindow;
 	VkQueue								mGraphicsQueue;
@@ -126,4 +133,11 @@ private:
 	VkSurfaceKHR						mSurface;
 	VkPhysicalDevice					mPhysicalDevice;
 	VkDebugUtilsMessengerEXT			mCallback;
+	VkSwapchainKHR						mSwapChain;
+	std::vector<VkImage>				mSwapChainImages;
+	VkFormat							mSwapChainFormat;
+	VkExtent2D							mSwapChainExtent;
+
+	std::vector<VkImageView>			mSwapChainImageViews;
+	
 };
