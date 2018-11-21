@@ -171,6 +171,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HelloTriangleApplication.h" />
+    <ClInclude Include="ReadFile.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\FragShader.frag" />
+    <None Include="Shader\VertexShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
