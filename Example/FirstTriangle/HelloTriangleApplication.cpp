@@ -666,6 +666,130 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	vkDestroyShaderModule(mDevice, vertShaderModule, nullptr);
 	vkDestroyShaderModule(mDevice, fragShaderModule, nullptr);
 
+	//***************************
+	//		Vertex Input
+	//***************************
+	//
+	//Bindings: spacing between data and 
+	//			whether the data is per - vertex or per - instance(see instancing)
+	//Attribute descriptions : 
+	//			type of the attributes passed to the vertex shader, 
+	//			which binding to load them from 
+	//			and at which offset
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+	vertexInputInfo.sType							= VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputInfo.vertexBindingDescriptionCount	= 0;
+	vertexInputInfo.pVertexBindingDescriptions		= nullptr;
+	vertexInputInfo.vertexAttributeDescriptionCount = 0;
+	vertexInputInfo.pVertexAttributeDescriptions	= nullptr;
+
+	/************************************************************************/
+	/*		Input Assembly                                                                      */
+	/************************************************************************/
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+	inputAssembly.sType						= VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	//VK_PRIMITIVE_TOPOLOGY_POINT_LIST: points from vertices
+	//VK_PRIMITIVE_TOPOLOGY_LINE_LIST : line from every 2 vertices without reuse
+	//VK_PRIMITIVE_TOPOLOGY_LINE_STRIP : the end vertex of every line is used as start vertex for the next line
+	//VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : triangle from every 3 vertices without reuse
+	//VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP : the second and third vertex of every triangle are used as first two vertices of the next triangle
+	inputAssembly.topology					= VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	//If you set the primitiveRestartEnable member to VK_TRUE, 
+	//then it's possible to break up lines 
+	//and triangles in the _STRIP topology modes 
+	//by using a special index of 0xFFFF or 0xFFFFFFFF.
+	inputAssembly.primitiveRestartEnable	= VK_FALSE;
+	
+
+	/************************************************************************/
+	/*		Viewports and Scissors                                                                      */
+	/************************************************************************/
+	VkViewport viewport = {};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)mSwapChainExtent.width;
+	viewport.height = (float)mSwapChainExtent.height;
+	/*
+	 *	The minDepth and maxDepth values specify 
+	 *	the range of depth values to use for the framebuffer
+	 */
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	//While viewports define the transformation from the image to the framebuffer,
+	//scissor rectangles define in which regions pixels will actually be stored.
+	VkRect2D scissor = {};
+	scissor.offset = { 0,0 };
+	scissor.extent = mSwapChainExtent;
+
+	//It is possible to use multiple viewports 
+	//and scissor rectangles on some graphics cards, 
+	//so its members reference an array of them.
+	//Using multiple requires enabling a GPU feature(see logical device creation).
+	VkPipelineViewportStateCreateInfo viewportState = {};
+	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.viewportCount = 1;
+	viewportState.pViewports = &viewport;
+	viewportState.scissorCount = 1;
+	viewportState.pScissors = &scissor;
+
+	/************************************************************************/
+	/*		Rasterizer                                                                      */
+	/************************************************************************/
+	VkPipelineRasterizationStateCreateInfo rasterizer = {};
+	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	//If depthClampEnable is set to VK_TRUE, then fragments that are beyond the near and far planes are clamped to them as opposed to discarding them. This is useful in some special cases like shadow maps. Using this requires enabling a GPU feature.
+	rasterizer.depthClampEnable = VK_FALSE;
+	//If rasterizerDiscardEnable is set to VK_TRUE, then geometry never passes through the rasterizer stage. This basically disables any output to the framebuffer.
+	rasterizer.rasterizerDiscardEnable = VK_FALSE;
+	//The polygonMode determines how fragments are generated for geometry.The following modes are available :
+	//			VK_POLYGON_MODE_FILL	: fill the area of the polygon with fragments
+	//			VK_POLYGON_MODE_LINE	: polygon edges are drawn as lines
+	//			VK_POLYGON_MODE_POINT : polygon vertices are drawn as points
+	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+	//The lineWidth member is straightforward, 
+	//it describes the thickness of lines 
+	//in terms of number of fragments.
+	//The maximum line width that is supported depends on the hardware and any line thicker than 1.0f requires you to enable the wideLines GPU feature.
+	rasterizer.lineWidth = 1.0f;
+	//The cullMode variable determines the type of face culling to use.You can disable culling, cull the front faces, cull the back faces or both.
+	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	//The frontFace variable specifies the vertex order for faces to be considered front-facing and can be clockwise or counterclockwise.
+	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	//The rasterizer can alter the depth values by adding a constant value or biasing them based on a fragment's slope
+	rasterizer.depthBiasEnable = VK_FALSE;
+	rasterizer.depthBiasConstantFactor = 0.0f;//optional
+	rasterizer.depthBiasClamp = 0.0f;//optional
+	rasterizer.depthBiasSlopeFactor = 0.0f;//optional
+
+	/************************************************************************/
+	/*		MultiSampling                                                                     */
+	/************************************************************************/
+	//The VkPipelineMultisampleStateCreateInfo struct configures multisampling, 
+	//which is one of the ways to perform anti-aliasing. 
+	VkPipelineMultisampleStateCreateInfo multisampling = {};
+	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampling.sampleShadingEnable = VK_FALSE;
+	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampling.minSampleShading = 1.0f;//optional
+	multisampling.pSampleMask = nullptr;//optional
+	multisampling.alphaToCoverageEnable = VK_FALSE;//optional
+	multisampling.alphaToOneEnable = VK_FALSE;//optional
+
+	/************************************************************************/
+	/*		Depth and stencil testing
+	/************************************************************************/
+	//empty
+
+	/************************************************************************/
+	/*		Color Blending                                                                      */
+	/************************************************************************/
+	//After a fragment shader has returned a color, 
+	//it needs to be combined with the color 
+	//that is already in the framebuffer. 
+	//This transformation is known as color blending and there are two ways to do it:
+	//	1.Mix the old and new value to produce a final color
+	//	2.Combine the old and new value using a bitwise operation
 }
 
 VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char>& code)
