@@ -172,6 +172,8 @@ void HelloTriangleApplication::mainLoop()
 
 void HelloTriangleApplication::cleanUp()
 {
+	vkDestroyPipelineLayout(mDevice,mPipelineLayout,nullptr);
+
 	for (auto imageView : mSwapChainImageViews) {
 		vkDestroyImageView(mDevice, imageView, nullptr);
 	}
@@ -757,10 +759,10 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	//The frontFace variable specifies the vertex order for faces to be considered front-facing and can be clockwise or counterclockwise.
 	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	//The rasterizer can alter the depth values by adding a constant value or biasing them based on a fragment's slope
-	rasterizer.depthBiasEnable = VK_FALSE;
-	rasterizer.depthBiasConstantFactor = 0.0f;//optional
-	rasterizer.depthBiasClamp = 0.0f;//optional
-	rasterizer.depthBiasSlopeFactor = 0.0f;//optional
+	rasterizer.depthBiasEnable			= VK_FALSE;
+	rasterizer.depthBiasConstantFactor	= 0.0f;//optional
+	rasterizer.depthBiasClamp			= 0.0f;//optional
+	rasterizer.depthBiasSlopeFactor		= 0.0f;//optional
 
 	/************************************************************************/
 	/*		MultiSampling                                                                     */
@@ -768,13 +770,13 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	//The VkPipelineMultisampleStateCreateInfo struct configures multisampling, 
 	//which is one of the ways to perform anti-aliasing. 
 	VkPipelineMultisampleStateCreateInfo multisampling = {};
-	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampling.sampleShadingEnable = VK_FALSE;
-	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	multisampling.minSampleShading = 1.0f;//optional
-	multisampling.pSampleMask = nullptr;//optional
+	multisampling.sType					= VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampling.sampleShadingEnable	= VK_FALSE;
+	multisampling.rasterizationSamples	= VK_SAMPLE_COUNT_1_BIT;
+	multisampling.minSampleShading		= 1.0f;//optional
+	multisampling.pSampleMask			= nullptr;//optional
 	multisampling.alphaToCoverageEnable = VK_FALSE;//optional
-	multisampling.alphaToOneEnable = VK_FALSE;//optional
+	multisampling.alphaToOneEnable		= VK_FALSE;//optional
 
 	/************************************************************************/
 	/*		Depth and stencil testing
@@ -790,6 +792,80 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	//This transformation is known as color blending and there are two ways to do it:
 	//	1.Mix the old and new value to produce a final color
 	//	2.Combine the old and new value using a bitwise operation
+	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+	colorBlendAttachment.colorWriteMask			= VK_COLOR_COMPONENT_R_BIT |
+		VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+		VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.blendEnable			= VK_FALSE;
+	colorBlendAttachment.srcColorBlendFactor	= VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstColorBlendFactor	= VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.colorBlendOp			= VK_BLEND_OP_ADD;
+	colorBlendAttachment.srcAlphaBlendFactor	= VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstAlphaBlendFactor	= VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.alphaBlendOp			= VK_BLEND_OP_ADD;
+
+	//color blending follow pseudo-code:
+	//	if (blendEnable)
+	//	{
+	//		finalColor.rgb = (srcColorBlendFactor * newColor.rgb) < colorBlendOp > (dstColorBlendFactor * oldColor.rgb);
+	//		finalColor.a = (srcAlphaBlendFactor * newColor.a) < alphaBlendOp > (dstAlphaBlendFactor * oldColor.a);
+	//	}
+	//	else
+	//	{
+	//		finalColor = newColor;
+	//	}
+	//
+	//	finalColor = finalColor & colorWriteMask;
+	VkPipelineColorBlendStateCreateInfo colorBlending = {};
+	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	//If you want to use the second method of blending(bitwise combination), 
+	//	then you should set logicOpEnable to VK_TRUE.
+	//
+	//The bitwise operation can then be specified 
+	//	in the logicOp field
+	//
+	//Note that this will automatically disable the first method, 
+	//	as if you had set blendEnable to VK_FALSE 
+	//	for every attached framebuffer!
+	//
+	//The colorWriteMask will also be used in this mode 
+	//	to determine which channels in the framebuffer will actually be affected. 
+	colorBlending.logicOpEnable		= VK_FALSE;
+	colorBlending.logicOp			= VK_LOGIC_OP_COPY;
+	colorBlending.attachmentCount	= 1;
+	colorBlending.pAttachments		= &colorBlendAttachment;
+	colorBlending.blendConstants[0] = 0.0f; //optional
+	colorBlending.blendConstants[1] = 0.0f; //optional
+	colorBlending.blendConstants[2] = 0.0f; //optional
+	colorBlending.blendConstants[3] = 0.0f; //optional
+	
+	/************************************************************************/
+	/*		Dynamic State                                                                     */
+	/************************************************************************/
+	VkDynamicState dynamicStates[] = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_LINE_WIDTH
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamicState = {};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.dynamicStateCount = 2;
+	dynamicState.pDynamicStates = dynamicStates;
+
+	/************************************************************************/
+	/*		Pipeline Layout                                                                     */
+	/************************************************************************/
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.setLayoutCount = 0;	//optional
+	pipelineLayoutInfo.pSetLayouts = nullptr; //optional
+	pipelineLayoutInfo.pushConstantRangeCount = 0; //optional
+	pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
+	if (vkCreatePipelineLayout(mDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create pipeline layout!");
+	}
 }
 
 VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char>& code)
