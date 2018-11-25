@@ -127,6 +127,8 @@ private:
 
 	void createGraphicsPipeline();
 
+	void createRenderPass();
+
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 private:
 	GLFWwindow*							mWindow;

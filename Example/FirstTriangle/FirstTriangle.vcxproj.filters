@@ -26,10 +26,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HelloTriangleApplication.h">
+    <ClInclude Include="ReadFile.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ReadFile.h">
+    <ClInclude Include="HelloTriangleApplication.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

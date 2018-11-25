@@ -92,6 +92,7 @@ void HelloTriangleApplication::initVulkan()
 	createLogicalDevice();
 	createSwapChain();
 	createImageViews();
+	createGraphicsPipeline();
 }
 
 void HelloTriangleApplication::createInstance()
@@ -880,4 +881,9 @@ VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<ch
 		throw std::runtime_error("failed to create shader module!");
 	}
 	return shaderModule;
+}
+
+void HelloTriangleApplication::createRenderPass()
+{
+
 }
