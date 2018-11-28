@@ -92,6 +92,7 @@ void HelloTriangleApplication::initVulkan()
 	createLogicalDevice();
 	createSwapChain();
 	createImageViews();
+	createRenderPass();
 	createGraphicsPipeline();
 }
 
@@ -883,7 +884,28 @@ VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<ch
 	return shaderModule;
 }
 
+/************************************************************************/
+/*  specify how many color and depth buffers there will be, 
+/*	how many samples to use for each of them 
+/*	and how their contents should be handled throughout the rendering operations                                                                     */
+/************************************************************************/
 void HelloTriangleApplication::createRenderPass()
 {
+	VkAttachmentDescription colorAttachment = {};
+	colorAttachment.format = mSwapChainFormat;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT; //1 sample
 
+	/************************************************************************/
+	/*The loadOp and storeOp determine what to do with the data in the attachment before rendering and after rendering.
+
+	/* LOAD_OP:
+	/*		VK_ATTACHMENT_LOAD_OP_LOAD: Preserve the existing contents of the attachment
+	/*		VK_ATTACHMENT_LOAD_OP_CLEAR: Clear the values to a constant at the start
+	/*		VK_ATTACHMENT_LOAD_OP_DONT_CARE: Existing contents are undefined; we don't care about them
+	/*
+	/* STORE_OP:
+	/*
+	/*
+	/************************************************************************/
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 }

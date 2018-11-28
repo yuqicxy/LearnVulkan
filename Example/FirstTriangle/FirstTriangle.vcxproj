@@ -174,8 +174,8 @@
     <ClInclude Include="ReadFile.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\FragShader.frag" />
-    <None Include="Shader\VertexShader.vert" />
+    <None Include="Shaders\FragShader.frag" />
+    <None Include="Shaders\VertexShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
