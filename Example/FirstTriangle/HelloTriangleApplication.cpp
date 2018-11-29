@@ -174,7 +174,9 @@ void HelloTriangleApplication::mainLoop()
 
 void HelloTriangleApplication::cleanUp()
 {
+	vkDestroyPipeline(mDevice, mGraphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(mDevice,mPipelineLayout,nullptr);
+	vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 
 	for (auto imageView : mSwapChainImageViews) {
 		vkDestroyImageView(mDevice, imageView, nullptr);
@@ -868,6 +870,46 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	{
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
+
+	VkGraphicsPipelineCreateInfo pipelineInfo = {};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.stageCount = 2;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.pVertexInputState = &vertexInputInfo;
+	pipelineInfo.pInputAssemblyState = &inputAssembly;
+	pipelineInfo.pViewportState = &viewportState;
+	pipelineInfo.pRasterizationState = &rasterizer;
+	pipelineInfo.pMultisampleState = &multisampling;
+	pipelineInfo.pDepthStencilState = nullptr;//optional
+	pipelineInfo.pColorBlendState = &colorBlending;//optional
+	pipelineInfo.pDynamicState = nullptr;//optional
+	pipelineInfo.layout = mPipelineLayout;
+	pipelineInfo.renderPass = mRenderPass;
+	pipelineInfo.subpass = 0;
+	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;	//optional
+	pipelineInfo.basePipelineIndex = -1;				//optional
+
+	//The vkCreateGraphicsPipelines function 
+	//		actually has more parameters than 
+	//		the usual object creation functions in Vulkan
+
+	//It is designed to take multiple VkGraphicsPipelineCreateInfo objects 
+	//		and create multiple VkPipeline objects 
+	//		in a single call.
+	
+	//The second parameter, for which 
+	//		we've passed the VK_NULL_HANDLE argument, 
+	//		references an optional VkPipelineCache object. 
+	//A pipeline cache can be used to store and reuse data 
+	//		relevant to pipeline creation across multiple calls to vkCreateGraphicsPipelines 
+	//		and even across program executions 
+	//		if the cache is stored to a file.
+	// This makes it possible to significantly 
+	//		speed up pipeline creation at a later time.
+	if (vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create graphics pipeline!");
+	}
 }
 
 VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char>& code)
@@ -908,4 +950,84 @@ void HelloTriangleApplication::createRenderPass()
 	/*
 	/************************************************************************/
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+
+	//storeOp
+	//******************************************
+	//VK_ATTACHMENT_STORE_OP_STORE: 
+	//			Rendered contents will be stored 
+	//			in memory and can be read later
+	//VK_ATTACHMENT_STORE_OP_DONT_CARE : 
+	//			Contents of the framebuffer 
+	//			will be undefined 
+	//			after the rendering operation
+	//******************************************
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+	/************************************************************************/
+	/*	VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: 
+	/*		Images used as color attachment
+	/*	VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: 
+	/*		Images to be presented in the swap chain
+	/*	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: 
+	/*		Images to be used as destination 
+	/*		for a memory copy operation
+	/************************************************************************/
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	//initialLayout specifies which layout the image will have before the render pass begins.
+	//finalLayout specifies the layout to automatically transition to when the render pass finishes
+
+	//Subpasses and attachment references
+	//A single render pass can consist of multiple subpasses
+	//Subpasses are subsequent rendering operations 
+	//that depend on the contents of framebuffers in previous passes,
+
+
+	/************************************************************************/
+	/*	VkAttchmentReference                                                                     */
+	/************************************************************************/
+	VkAttachmentReference colorAttachmentRef = {};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	//The attachment parameter specifies 
+	//which attachment to reference 
+	//by its index in the attachment descriptions array.
+
+	//The attachment parameter specifies 
+	//		which attachment to reference 
+	//		by its index in the attachment descriptions array.
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	//The index of the attachment in this array 
+	//is directly referenced 
+	//from the fragment shader 
+	//with the layout(location = 0) out vec4 outColor 
+	//directive!
+
+	subpass.pColorAttachments = &colorAttachmentRef;
+
+	//pInputAttachments			: Attachments that are read from a shader
+	//pResolveAttachments		: Attachments used 
+	//			for multisampling color attachments
+	//pDepthStencilAttachment	: Attachments for depth and stencil data
+	//pPreserveAttachments		: Attachments that are not used 
+	//			by this subpass, 
+	//			but for which the data must be preserved
+	
+	//Render Pass
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+
+	if (vkCreateRenderPass(mDevice, &renderPassInfo, nullptr, &mRenderPass) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create render pass!");
+	}
 }

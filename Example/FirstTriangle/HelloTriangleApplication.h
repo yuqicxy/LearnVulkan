@@ -144,5 +144,7 @@ private:
 	VkFormat							mSwapChainFormat;
 	VkExtent2D							mSwapChainExtent;
 	std::vector<VkImageView>			mSwapChainImageViews;
+	VkRenderPass						mRenderPass;
 	VkPipelineLayout					mPipelineLayout;
+	VkPipeline							mGraphicsPipeline;
 };
