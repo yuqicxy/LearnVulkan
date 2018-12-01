@@ -130,6 +130,21 @@ private:
 	void createRenderPass();
 
 	VkShaderModule createShaderModule(const std::vector<char>& code);
+
+	void createFrameBuffers();
+
+	void createCommandPool();
+
+	void createCommandBuffer();
+
+	//The drawFrame function will perform the following operations:
+	//		Acquire an image from the swap chain
+	//		Execute the command buffer with that image as attachment in the framebuffer
+	//		Return the image to the swap chain for presentation
+	void drawFrame();
+
+	void createSemaphore();
+
 private:
 	GLFWwindow*							mWindow;
 	VkQueue								mGraphicsQueue;
@@ -147,4 +162,22 @@ private:
 	VkRenderPass						mRenderPass;
 	VkPipelineLayout					mPipelineLayout;
 	VkPipeline							mGraphicsPipeline;
+	std::vector<VkFramebuffer>			mSwapChainFrameBuffers;
+
+	//Commands in Vulkan, like drawing operations and memory transfers, 
+	//	are not executed directly using function calls.
+	//You have to record all of the operations 
+	//	you want to perform in command buffer objects.
+	//The advantage of this is that 
+	//	all of the hard work of setting up the drawing commands 
+	//	can be done in advance and in multiple threads.
+	VkCommandPool						mCommandPool;
+	std::vector<VkCommandBuffer>		mCommandBuffers;
+
+	//We'll need one semaphore to signal that 
+	//mImageAvailableSemaphore: an image has been acquired and is ready for rendering, 
+	//mRenderFinishedSemaphore: and another one to signal 
+	//		that rendering has finished and presentation can happen.
+	VkSemaphore							mImageAvailableSemaphore;
+	VkSemaphore							mRenderFinishedSemaphore;
 };

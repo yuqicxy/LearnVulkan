@@ -18,10 +18,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FirstTriangle.cpp">
+    <ClCompile Include="HelloTriangleApplication.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="HelloTriangleApplication.cpp">
+    <ClCompile Include="FirstTriangle.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
