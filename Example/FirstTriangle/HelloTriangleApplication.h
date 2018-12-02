@@ -17,6 +17,11 @@
 class HelloTriangleApplication
 {
 public:
+	HelloTriangleApplication()
+	:mCurrentFrame(0)
+	{
+	}
+	
 	void run();
 
 private:
@@ -143,7 +148,11 @@ private:
 	//		Return the image to the swap chain for presentation
 	void drawFrame();
 
+	void DrawFrame();
+
 	void createSemaphore();
+
+	void createSyncObjects();
 
 private:
 	GLFWwindow*							mWindow;
@@ -179,5 +188,10 @@ private:
 	//mRenderFinishedSemaphore: and another one to signal 
 	//		that rendering has finished and presentation can happen.
 	VkSemaphore							mImageAvailableSemaphore;
+	std::vector<VkSemaphore>			mImageAvailableSemaphores;
 	VkSemaphore							mRenderFinishedSemaphore;
+	std::vector<VkSemaphore>			mRenderFinishedSemaphores;
+
+	size_t								mCurrentFrame;
+	std::vector<VkFence>				mInFlightFences;
 };

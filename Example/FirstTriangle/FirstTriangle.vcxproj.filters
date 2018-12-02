@@ -18,20 +18,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HelloTriangleApplication.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="FirstTriangle.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="ReadFile.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="HelloTriangleApplication.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
+    <ClCompile Include="HelloTriangleApplication.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\FragShader.frag">
@@ -40,5 +32,13 @@
     <None Include="Shaders\VertexShader.vert">
       <Filter>Shaders</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="HelloTriangleApplication.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ReadFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
