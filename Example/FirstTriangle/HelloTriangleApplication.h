@@ -19,6 +19,7 @@ class HelloTriangleApplication
 public:
 	HelloTriangleApplication()
 	:mCurrentFrame(0)
+	,mFramebufferResized(false)
 	{
 	}
 	
@@ -154,6 +155,19 @@ private:
 
 	void createSyncObjects();
 
+	//It is possible for the window surface to change 
+	//		such that the swap chain is no longer compatible with it.
+	//One of the reasons that could cause this to happen 
+	//		is the size of the window changing.
+	void recreateSwapChain();
+
+	//To make sure that 
+	//the old versions of these objects are cleaned up 
+	//before recreating them, 
+	//we should move some of the cleanup code 
+	//to a separate function that 
+	//we can call from the recreateSwapChain function.
+	void cleanupSwapChain();
 private:
 	GLFWwindow*							mWindow;
 	VkQueue								mGraphicsQueue;
@@ -194,4 +208,17 @@ private:
 
 	size_t								mCurrentFrame;
 	std::vector<VkFence>				mInFlightFences;
+
+public:
+	/************************************************************************/
+	/* Handling resizes explicitly
+	/************************************************************************/
+	//Although many drivers and platforms 
+	//		trigger VK_ERROR_OUT_OF_DATE_KHR automatically 
+	//		after a window resize, 
+	//		but it is not guaranteed to happen. 
+	//
+	//add a new member variable that 
+	//flags that a resize has happened:
+	bool								mFramebufferResized;
 };

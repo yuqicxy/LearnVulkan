@@ -59,6 +59,7 @@ const int MAX_FRAMES_IN_FLIGHT = 2;
 //This is normally only used to test 
 //the validation layers themselves, 
 //so you should always return VK_FALSE.
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -67,6 +68,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 {
 	std::cout << "validation layer: " << pCallbackData->pMessage << std::endl;
 	return VK_FALSE;
+}
+
+static void framebufferResizeCallback(GLFWwindow* window, int width, int height) 
+{
+	auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+	app->mFramebufferResized = true;
 }
 
 void HelloTriangleApplication::run()
@@ -81,8 +88,16 @@ void HelloTriangleApplication::initWindow()
 {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+	
 	mWindow = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+
+	glfwSetWindowUserPointer(mWindow, this);
+
+	//Now to actually detect resizes 
+	//		we can use the glfwSetFramebufferSizeCallback function 
+	//		in the GLFW framework to set up a callback:
+	glfwSetFramebufferSizeCallback(mWindow, framebufferResizeCallback);
 }
 
 void HelloTriangleApplication::initVulkan()
@@ -187,36 +202,55 @@ void HelloTriangleApplication::mainLoop()
 	vkDeviceWaitIdle(mDevice);
 }
 
+void HelloTriangleApplication::cleanupSwapChain()
+{
+	for (size_t i = 0; i < mSwapChainFrameBuffers.size(); ++i)
+	{
+		vkDestroyFramebuffer(mDevice, mSwapChainFrameBuffers[i], nullptr);
+	}
+
+	vkFreeCommandBuffers(mDevice,
+		mCommandPool,
+		static_cast<uint32_t>(mCommandBuffers.size()),
+		mCommandBuffers.data());
+
+	vkDestroyPipeline(mDevice, mGraphicsPipeline, nullptr);
+
+	vkDestroyPipelineLayout(mDevice, mPipelineLayout, nullptr);
+
+	vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
+
+	for (size_t i = 0;i < mSwapChainImageViews.size(); ++i)
+	{
+		vkDestroyImageView(mDevice, mSwapChainImageViews[i], nullptr);
+	}
+
+	vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
+}
+
 void HelloTriangleApplication::cleanUp()
 {
+	cleanupSwapChain();
+
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 	{
 		vkDestroySemaphore(mDevice, mImageAvailableSemaphores[i], nullptr);
 		vkDestroySemaphore(mDevice, mRenderFinishedSemaphores[i], nullptr);
 		vkDestroyFence(mDevice, mInFlightFences[i], nullptr);
 	}
-	//vkDestroySemaphore(mDevice, mRenderFinishedSemaphore, nullptr);
-	//vkDestroySemaphore(mDevice, mImageAvailableSemaphore, nullptr);
-	vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
-	
-	for (auto frameBuffer : mSwapChainFrameBuffers)
-	{
-		vkDestroyFramebuffer(mDevice, frameBuffer, nullptr);
-	}
-	vkDestroyPipeline(mDevice, mGraphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(mDevice,mPipelineLayout,nullptr);
-	vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 
-	for (auto imageView : mSwapChainImageViews) {
-		vkDestroyImageView(mDevice, imageView, nullptr);
-	}
+	vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
+
+	vkDestroyDevice(mDevice, nullptr);
+
 	if (enableValidationLayers) 
 	{
 		DestroyDebugUtilsMessengerEXT(mInstance,mCallback, nullptr);
 	}
-	vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
-	vkDestroyDevice(mDevice, nullptr);
+
+	vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 	vkDestroyInstance(mInstance, nullptr);
+
 	glfwDestroyWindow(mWindow);
 	glfwTerminate();
 }
@@ -589,7 +623,19 @@ VkExtent2D HelloTriangleApplication::chooseSwapExtent(const VkSurfaceCapabilitie
 	}
 	else
 	{
-		VkExtent2D actualExtent = { WIDTH,HEIGHT };
+		//To handle window resizes properly, 
+		//we also need to query 
+		//the current size of the framebuffer 
+		//to make sure that 
+		//the swap chain images have the(new) right size.
+		int width, height;
+		glfwGetFramebufferSize(mWindow, &width, &height);
+
+		VkExtent2D actualExtent = {
+			static_cast<uint32_t>(width),
+			static_cast<uint32_t>(height)
+		};
+
 		actualExtent.width  = std::max(capabilites.minImageExtent.width  ,std::min(capabilites.maxImageExtent.width, actualExtent.width));
 		actualExtent.height = std::max(capabilites.minImageExtent.height,std::min(capabilites.maxImageExtent.height, actualExtent.height));
 		return actualExtent;
@@ -726,6 +772,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	//VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST : triangle from every 3 vertices without reuse
 	//VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP : the second and third vertex of every triangle are used as first two vertices of the next triangle
 	inputAssembly.topology					= VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
 	//If you set the primitiveRestartEnable member to VK_TRUE, 
 	//then it's possible to break up lines 
 	//and triangles in the _STRIP topology modes 
@@ -783,7 +830,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	//it describes the thickness of lines 
 	//in terms of number of fragments.
 	//The maximum line width that is supported depends on the hardware and any line thicker than 1.0f requires you to enable the wideLines GPU feature.
-	rasterizer.lineWidth = 1.0f;
+	rasterizer.lineWidth = 4.0f;
 	//The cullMode variable determines the type of face culling to use.You can disable culling, cull the front faces, cull the back faces or both.
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 	//The frontFace variable specifies the vertex order for faces to be considered front-facing and can be clockwise or counterclockwise.
@@ -1418,31 +1465,64 @@ void HelloTriangleApplication::drawFrame()
 
 void HelloTriangleApplication::DrawFrame()
 {
-	//To perform CPU - GPU synchronization, 
+	//To perform CPU-GPU synchronization, 
+	//
 	//Vulkan offers a second type of synchronization primitive called fences.
 	//Fences are similar to semaphores in the sense that they can be signaled and waited for, 
 	//but this time we actually wait for them in our own code.
-
 
 	//The vkWaitForFences function takes an array of fences 
 	//		and waits for either any or all of them to be signaled before returning.
 	//The VK_TRUE we pass here indicates that 
 	//		we want to wait for all fences, 
-	//		but in the case of a single one it obviously doesn't matter.
+	//		but in the case of a single one 
+	//		it obviously doesn't matter.
 	vkWaitForFences(mDevice, 1, &mInFlightFences[mCurrentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 	
 	//Unlike the semaphores, 
 	//we manually need to restore the fence to the unsignaled state 
 	//by resetting it with the vkResetFences call.
-	vkResetFences(mDevice, 1, &mInFlightFences[mCurrentFrame]);
+	//vkResetFences(mDevice, 1, &mInFlightFences[mCurrentFrame]);
 
 	uint32_t imageIndex;
-	vkAcquireNextImageKHR(mDevice, 
+	VkResult result = vkAcquireNextImageKHR(mDevice, 
 		mSwapChain, 
 		std::numeric_limits<uint64_t>::max(), 
 		mImageAvailableSemaphores[mCurrentFrame],
 		VK_NULL_HANDLE, 
 		&imageIndex);
+
+	//Now we just need to figure out 
+	//		when swap chain recreation is necessary 
+	//		and call our new recreateSwapChain function. 
+	//
+	//The swap chain is no longer adequate during presentation. 
+	//The vkAcquireNextImageKHR and vkQueuePresentKHR functions 
+	//		can return the following special values to indicate this.
+	//
+	//VK_ERROR_OUT_OF_DATE_KHR: 
+	//		The swap chain has become incompatible 
+	//		with the surface and can no longer be used for rendering.
+	//		Usually happens after a window resize.
+	//VK_SUBOPTIMAL_KHR:
+	//		The swap chain can still be used to successfully present to the surface, 
+	//		but the surface properties are no longer matched exactly.
+	//
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
+	{
+		//If the swap chain turns out to be out of date 
+		//		when attempting to acquire an image, 
+		//		then it is no longer possible to present to it. 
+		//Therefore we should immediately recreate the swap chain 
+		//		and try again in the next drawFrame call.
+		recreateSwapChain();
+		return;
+	}
+	else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+	{
+		throw std::runtime_error("Failed to acquire swap chain image!");
+	}
+
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1459,6 +1539,15 @@ void HelloTriangleApplication::DrawFrame()
 	VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphores[mCurrentFrame] };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
+
+
+	//if we abort drawing at this point 
+	//	then the fence will be never have been submitted with vkQueueSubmit 
+	//	and it'll be in an unexpected state 
+	//	when we try to wait for it later on.
+	//We could recreate the fences as part of swap chain recreation, 
+	//	but it's easier to move the vkResetFences call:
+	vkResetFences(mDevice, 1, &mInFlightFences[mCurrentFrame]);
 
 	if(vkQueueSubmit(mGraphicsQueue,1,&submitInfo,mInFlightFences[mCurrentFrame]) != VK_SUCCESS)
 	{
@@ -1477,7 +1566,16 @@ void HelloTriangleApplication::DrawFrame()
 	
 	presentInfo.pImageIndices = &imageIndex;
 
-	vkQueuePresentKHR(mPresentQueue, &presentInfo);
+	result = vkQueuePresentKHR(mPresentQueue, &presentInfo);
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || mFramebufferResized)
+	{
+		mFramebufferResized = false;
+		recreateSwapChain();
+	}
+	else if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to present swap chain image");
+	}
 
 	mCurrentFrame = (mCurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -1540,4 +1638,49 @@ void HelloTriangleApplication::createSemaphore()
 	}
 
 }
+
+void HelloTriangleApplication::recreateSwapChain()
+{
+	//There is another case 
+	//	where a swap chain may become out of data 
+	//	and that is a special kind of window resizing:
+	//
+	//
+	int width = 0, height = 0;
+	while (width == 0 || height == 0)
+	{
+		glfwGetFramebufferSize(mWindow, &width, &height);
+		glfwWaitEvents();
+	}
+
+	//We first call vkDeviceWaitIdle, 
+	//because just like in the last chapter, we shouldn't touch resources that may still be in use
+	vkDeviceWaitIdle(mDevice);
+	
+	cleanupSwapChain();
+
+	//recreate the swap chain itself.
+	createSwapChain();
+	
+	//The image views need to be recreated 
+	//because they are based directly on the swap chain images.
+	createImageViews();
+	
+	//The render pass needs to be recreated 
+	//because it depends on the format of the swap chain images
+	createRenderPass();
+
+	//Viewport and scissor rectangle size is specified 
+	//during graphics pipeline creation, 
+	//so the pipeline also needs to be rebuilt.
+	//It is possible to avoid this by using dynamic state 
+	//for the viewports and scissor rectangles
+	createGraphicsPipeline();
+
+	//framebuffers and command buffers also directly 
+	//depend on the swap chain images.
+	createFrameBuffers();
+	createCommandBuffer();
+}
+
 
