@@ -1,10 +1,12 @@
 #include <iostream>
 #include <map>
 #include <set>
+#include <array>
 #include <limits>
 #include <algorithm>
 #include "HelloTriangleApplication.h"
 #include "ReadFile.h"
+#include "glm/glm.hpp"
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -20,6 +22,82 @@ const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_N
 #endif
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
+
+struct Vertex
+{
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	/************************************************************************/
+	/*		Binding descriptions
+	/************************************************************************/
+	static VkVertexInputBindingDescription getBindingDescription()
+	{
+		VkVertexInputBindingDescription bindingDescription = {};
+		//The binding parameter specifies 
+		//the index of the binding in the array of bindings
+		bindingDescription.binding = 0;
+		//The stride parameter specifies the number of bytes 
+		//from one entry to the next
+		bindingDescription.stride = sizeof(Vertex);
+		//the inputRate parameter:
+		//	VK_VERTEX_INPUT_RATE_VERTEX: Move to the next data entry 
+		//		after each vertex
+		//	VK_VERTEX_INPUT_RATE_INSTANCE : Move to the next data entry 
+		//		after each instance
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		return bindingDescription;
+	}
+
+	/************************************************************************/
+	/*		Attribute descriptions
+	/************************************************************************/
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
+	{
+		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+		//An attribute description struct describes 
+		//	how to extract a vertex attribute 
+		//	from a chunk of vertex data 
+		//	originating from a binding description
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		
+		//The format parameter describes
+		//		the type of data for the attribute. 
+		//
+		//	float	: VK_FORMAT_R32_SFLOAT
+		//	vec2	: VK_FORMAT_R32G32_SFLOAT
+		//	vec3	: VK_FORMAT_R32G32B32_SFLOAT
+		//	vec4	: VK_FORMAT_R32G32B32A32_SFLOAT
+		//	ivec2	: VK_FORMAT_R32G32_SINT, a 2-component vector of 32-bit signed integers
+		//	uvec4	: VK_FORMAT_R32G32B32A32_UINT, a 4-component vector of 32-bit unsigned integers
+		//	double	: VK_FORMAT_R64_SFLOAT, a double-precision(64-bit) float
+		//
+		// the offset parameter specifies 
+		//		the number of bytes 
+		//		since the start of the per-vertex data to read from
+		//
+		//The binding is loading one Vertex at a time 
+		//		and the position attribute(pos) 
+		//		is at an offset of 0 bytes 
+		//		from the beginning of this struct.
+		//
+		return attributeDescriptions;
+	}
+};
+
+const std::vector<Vertex> vertices = {
+	{{ 0.0f,-0.5f},{1.0f,0.0f,0.0f}},
+	{{ 0.5f, 0.5f},{0.0f,1.0f,0.0f}},
+	{{-0.5f, 0.5f},{0.0f,0.0f,1.0f}}
+};
 
 #undef max
 #undef min
@@ -70,6 +148,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
+
+
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height) 
 {
 	auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
@@ -113,6 +193,7 @@ void HelloTriangleApplication::initVulkan()
 	createGraphicsPipeline();
 	createFrameBuffers();
 	createCommandPool();
+	createVertexBuffer();
 	createCommandBuffer();
 	//createSemaphore();
 	createSyncObjects();
@@ -231,6 +312,8 @@ void HelloTriangleApplication::cleanupSwapChain()
 void HelloTriangleApplication::cleanUp()
 {
 	cleanupSwapChain();
+	
+	vkDestroyBuffer(mDevice, mVertexBuffer, nullptr);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 	{
@@ -744,22 +827,32 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo,fragShaderStageInfo };
 
-	//***************************
-	//		Vertex Input
-	//***************************
+	//*************************************
+	//		Pipeline Vertex Input
+	//*************************************
 	//
 	//Bindings: spacing between data and 
-	//			whether the data is per - vertex or per - instance(see instancing)
+	//			whether the data is per-vertex or per-instance(see instancing)
 	//Attribute descriptions : 
 	//			type of the attributes passed to the vertex shader, 
 	//			which binding to load them from 
 	//			and at which offset
+	//
+	auto bindingDescription = Vertex::getBindingDescription();
+	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
+	//The pipeline is now ready to accept vertex data 
+	//		in the format of the vertices container 
+	//		and pass it on to our vertex shader. 
+	//
+
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 	vertexInputInfo.sType							= VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount	= 0;
-	vertexInputInfo.pVertexBindingDescriptions		= nullptr;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions	= nullptr;
+	vertexInputInfo.vertexBindingDescriptionCount	= 1;
+	vertexInputInfo.pVertexBindingDescriptions		= &bindingDescription;
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+	vertexInputInfo.pVertexAttributeDescriptions	= attributeDescriptions.data();
+	
 
 	/************************************************************************/
 	/*		Input Assembly                                                                      */
@@ -1189,126 +1282,114 @@ void HelloTriangleApplication::createCommandPool()
 	}
 }
 
-//void HelloTriangleApplication::createCommandBuffer()
-//{
-//	mCommandBuffers.resize(mSwapChainFrameBuffers.size());
-//
-//	// VkCommandBufferAllocateInfo specifies the command pool 
-//	//		and number of buffers to allocate:
-//	VkCommandBufferAllocateInfo alloInfo = {};
-//	alloInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-//	alloInfo.commandPool = mCommandPool;
-//	//The level parameter specifies if the allocated command buffers are primary or secondary command buffers.
-//	//	VK_COMMAND_BUFFER_LEVEL_PRIMARY: Can be submitted to a queue for execution, 
-//	//			but cannot be called from other command buffers.
-//	//	VK_COMMAND_BUFFER_LEVEL_SECONDARY : Cannot be submitted directly,
-//	//			but can be called from primary command buffers.
-//	alloInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-//	alloInfo.commandBufferCount = (uint32_t)mCommandBuffers.size();
-//
-//	if (vkAllocateCommandBuffers(mDevice, &alloInfo, mCommandBuffers.data()) != VK_SUCCESS)
-//	{
-//		throw std::runtime_error("failed to allocate command buffers!");
-//	}
-//
-//	for (size_t i = 0;i < mCommandBuffers.size();++i)
-//	{
-//		VkCommandBufferBeginInfo beginInfo = {};
-//		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-//		//The flags parameter specifies how we're going to use the command buffer. 
-//		//The following values are available:
-//		//		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT: The command buffer will be rerecorded right after executing it once.
-//		//		VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : This is a secondary command buffer that will be entirely within a single render pass.
-//		//		VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT : The command buffer can be resubmitted while it is also already pending execution.
-//		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-//		//The pInheritanceInfo parameter is only relevant for secondary command buffers.
-//		//	It specifies which state to inherit from 
-//		//	the calling primary command buffers
-//		beginInfo.pInheritanceInfo = nullptr; //optional
-//
-//		if (vkBeginCommandBuffer(mCommandBuffers[i], &beginInfo) != VK_SUCCESS)
-//		{
-//			throw std::runtime_error("failed to begin recording command buffer!");
-//		}
-//
-//		VkRenderPassBeginInfo renderPassInfo = {};
-//		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-//		//The first parameters are the render pass itself 
-//		//	and the attachments to bind.
-//		renderPassInfo.renderPass = mRenderPass;
-//		renderPassInfo.framebuffer = mSwapChainFrameBuffers[i];
-//		//The next two parameters define the size of the render area.
-//		// The render area defines where shader loads and stores will take place. 
-//		//The pixels outside this region will have undefined values.
-//		// It should match the size of the attachments for best performance.
-//		renderPassInfo.renderArea.offset = { 0,0 };
-//		renderPassInfo.renderArea.extent = mSwapChainExtent;
-//
-//		//The last two parameters define the clear values to use for VK_ATTACHMENT_LOAD_OP_CLEAR, 
-//		//	which we used as load operation for the color attachment.
-//		VkClearValue clearColor = { 0.0f,0.0f,0.0f,1.0f };
-//		renderPassInfo.clearValueCount = 1;
-//		renderPassInfo.pClearValues = &clearColor;
-//		vkCmdBeginRenderPass(mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-//
-//		//The render pass can now begin.
-//		//All of the functions that 
-//		//	record commands can be recognized 
-//		//	by their vkCmd prefix
-//
-//		//The first parameter for every command 
-//		//		is always the command buffer 
-//		//		to record the command to.
-//		//
-//		//The second parameter specifies 
-//		//		the details of the render pass 
-//		//		we've just provided.
-//
-//		//The final parameter controls 
-//		//		how the drawing commands 
-//		//		within the render pass will be provided.
-//
-//		//It can have one of two values :
-//		//		VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded
-//		//			in the primary command buffer itself 
-//		//			and no secondary command buffers will be executed.
-//		//		VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS: The render pass commands 
-//		//			will be executed from secondary command buffers.
-//
-//		/************************************************************************/
-//		/*	Basic drawing commands
-//		/************************************************************************/
-//		// bind the graphics pipeline:
-//		//	The second parameter specifies 
-//		//	if the pipeline object is a graphics or compute pipeline. 
-//		vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
-//		
-//		//vertexCount: Even though we don't have a vertex buffer, 
-//		//			we technically still have 3 vertices to draw.
-//		//instanceCount : Used for instanced rendering, 
-//		//			use 1 if you're not doing that.
-//		//firstVertex : Used as an offset into the vertex buffer,
-//		//			defines the lowest value of gl_VertexIndex.
-//		//firstInstance : Used as an offset for instanced rendering, 
-//		//			defines the lowest value of gl_InstanceIndex.
-//		vkCmdDraw(mCommandBuffers[i], 3, 1, 0, 0);
-//		
-//		vkCmdEndRenderPass(mCommandBuffers[i]);
-//		
-//		if (vkEndCommandBuffer(mCommandBuffers[i]) != VK_SUCCESS)
-//		{
-//			throw std::runtime_error("Failed to record command buffer!");
-//		}
-//	}
-//}
+void HelloTriangleApplication::createVertexBuffer()
+{
+	//Creating a buffer requires us to fill a VkBufferCreateInfo structure
+	VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	//size specifies the size of the buffer in bytes. 
+	bufferInfo.size = sizeof(vertices[0]) * vertices.size();
+	//usage indicates for which purposes the data in the buffer 
+	//	is going to be used.
+	//It is possible to specify multiple purposes 
+	//	using a bitwise or.
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	//Just like the images in the swap chain, 
+	//	buffers can also be owned by a specific queue family 
+	//	or be shared between multiple at the same time.
+	//The buffer will only be used from the graphics queue, 
+	//	so we can stick to exclusive access.
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	//The flags parameter is used to configure sparse buffer memory, 
+	//which is not relevant right now.
+	//We'll leave it at the default value of 0.
+	bufferInfo.flags = 0;
+
+	//create the buffer with vkCreateBuffer. 
+	//Define a class member to hold the buffer handle 
+	//	and call it vertexBuffer.
+	if (vkCreateBuffer(mDevice, &bufferInfo, nullptr, &mVertexBuffer) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create vertex buffer!");
+	}
+
+	/************************************************************************/
+	/*		Memory requirements
+	/************************************************************************/
+	//The buffer has been created, 
+	//but it doesn't actually have any memory assigned to it yet. 
+	VkMemoryRequirements memRequirements;
+	//query its memory requirements 
+	vkGetBufferMemoryRequirements(mDevice, mVertexBuffer, &memRequirements);
+	
+	//The VkMemoryRequirements struct has three fields :
+	//	size: 
+	//		The size of the required amount of memory in bytes, 
+	//		may differ from bufferInfo.size.
+	//	alignment: 
+	//		The offset in bytes where the buffer begins 
+	//		in the allocated region of memory, 
+	//		depends on bufferInfo.usage 
+	//		and bufferInfo.flags.
+	//	memoryTypeBits:
+	//		Bit field of the memory types
+	//		that are suitable for the buffer.
+
+}
+
+uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+	VkPhysicalDeviceMemoryProperties memProperties;
+	//First we need to query info 
+	//	about the available types of memory 
+	//	using vkGetPhysicalDeviceMemoryProperties.
+	vkGetPhysicalDeviceMemoryProperties(mPhysicalDevice, &memProperties);
+	//The VkPhysicalDeviceMemoryProperties structure 
+	//	has two arrays memoryTypes and memoryHeaps.
+	//
+	//Memory heaps are distinct memory resources like dedicated VRAM 
+	//	and swap space in RAM for when VRAM runs out.
+	//The different types of memory exist within these heaps.
+	//Right now we'll only concern ourselves with the type of memory 
+	//	and not the heap it comes from, 
+	//	but you can imagine that this can affect performance
+	//
+	//**********************************************
+	//**********************************************
+	//first find a memory type
+	//that is suitable for the buffer itself:
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i)
+	{
+		if (typeFilter & (1 << i))
+		{
+			return i;
+		}
+	}
+	//The typeFilter parameter will be used 
+	//	to specify the bit field of memory types 
+	//	that are suitable.
+	//That means that we can find 
+	//	the index of a suitable memory type 
+	//	by simply iterating over them 
+	//	and checking if 
+	//	the corresponding bit is set to 1.
+	throw std::runtime_error("Failed to find suitable memory type!");
+}
 
 void HelloTriangleApplication::createCommandBuffer()
 {
 	mCommandBuffers.resize(mSwapChainFrameBuffers.size());
 
+	// VkCommandBufferAllocateInfo specifies the command pool 
+	//		and number of buffers to allocate:
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.commandPool = mCommandPool;
+	//The level parameter specifies if the allocated command buffers are primary or secondary command buffers.
+	//	VK_COMMAND_BUFFER_LEVEL_PRIMARY: Can be submitted to a queue for execution, 
+	//			but cannot be called from other command buffers.
+	//	VK_COMMAND_BUFFER_LEVEL_SECONDARY : Cannot be submitted directly,
+	//			but can be called from primary command buffers.
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = (uint32_t)mCommandBuffers.size();
 
@@ -1319,6 +1400,18 @@ void HelloTriangleApplication::createCommandBuffer()
 	for (size_t i = 0; i < mCommandBuffers.size(); i++) {
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		
+		//The flags parameter specifies how we're going to use the command buffer. 
+		//The following values are available:
+		//		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT:
+		//				The command buffer will be rerecorded right 
+		//				after executing it once.
+		//		VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 
+		//				This is a secondary command buffer that 
+		//				will be entirely within a single render pass.
+		//		VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT : 
+		//				The command buffer can be resubmitted 
+		//				while it is also already pending execution.
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
 		if (vkBeginCommandBuffer(mCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
@@ -1327,19 +1420,70 @@ void HelloTriangleApplication::createCommandBuffer()
 
 		VkRenderPassBeginInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		//The first parameters are the render pass itself 
+		//	and the attachments to bind.
 		renderPassInfo.renderPass = mRenderPass;
 		renderPassInfo.framebuffer = mSwapChainFrameBuffers[i];
+		//The next two parameters define 
+		//		the size of the render area.
+		//The render area defines where 
+		//		shader loads and stores will take place. 
+		//
+		//The pixels outside this region will have undefined values.
+		//It should match the size of the attachments 
+		//		for best performance.
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = mSwapChainExtent;
 
+		//The last two parameters define the clear values 
+		//	to use for VK_ATTACHMENT_LOAD_OP_CLEAR, 
+		//	which we used as load operation for the color attachment.
 		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
 
 		vkCmdBeginRenderPass(mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
+		
+		//The render pass can now begin.
+		//All of the functions that 
+		//		record commands can be recognized 
+		//		by their vkCmd prefix
+		//
+		//The first parameter for every command 
+		//		is always the command buffer 
+		//		to record the command to.
+		//
+		//The second parameter specifies 
+		//		the details of the render pass 
+		//		we've just provided.
+		//
+		//The final parameter controls 
+		//		how the drawing commands 
+		//		within the render pass will be provided.
+		//
+		//It can have one of two values :
+		//		VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded
+		//			in the primary command buffer itself 
+		//			and no secondary command buffers will be executed.
+		//		VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS: The render pass commands 
+		//			will be executed from secondary command buffers.
+		//		
+		//************************************************************************/
+		//*		Basic drawing commands
+		//************************************************************************/
+		// bind the graphics pipeline:
+		//	The second parameter specifies 
+		//	if the pipeline object is a graphics or compute pipeline. 
 		vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 
+		//vertexCount: Even though we don't have a vertex buffer, 
+		//			we technically still have 3 vertices to draw.
+		//instanceCount : Used for instanced rendering, 
+		//			use 1 if you're not doing that.
+		//firstVertex : Used as an offset into the vertex buffer,
+		//			defines the lowest value of gl_VertexIndex.
+		//firstInstance : Used as an offset for instanced rendering, 
+		//			defines the lowest value of gl_InstanceIndex.
 		vkCmdDraw(mCommandBuffers[i], 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(mCommandBuffers[i]);
@@ -1355,27 +1499,29 @@ void HelloTriangleApplication::drawFrame()
 {
 	//Each of these events is set in motion using a single function call, 
 	//	but they are executed asynchronously.
+	//
 	//The function calls will return before the operations are actually finished 
 	//	and the order of execution is also undefined.
 	//That is unfortunate, because each of the operations 
 	//	depends on the previous one finishing.
-
+	//
 	//There are two ways of synchronizing swap chain events: 
 	//	fences and semaphores.
-
+	//
 	//They're both objects that 
 	//	can be used for coordinating operations 
 	//	by having one operation signal 
 	//	and another operation wait for a fence or semaphore 
 	//	to go from the unsignaled to signaled state.
-
+	//
 	//The difference is that the state of fences 
-	//	can be accessed from your program using calls like vkWaitForFences 
+	//	can be accessed from your program 
+	//	using calls like vkWaitForFences 
 	//	and semaphores cannot be.
-
+	//
 	//Fences are mainly designed to synchronize your application itself with rendering operation, 
 	//whereas semaphores are used to synchronize operations within or across command queues.
-
+	//
 	/************************************************************************/
 	/*		Acquiring an image from the swap chain
 	/************************************************************************/

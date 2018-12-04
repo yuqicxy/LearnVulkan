@@ -168,6 +168,20 @@ private:
 	//to a separate function that 
 	//we can call from the recreateSwapChain function.
 	void cleanupSwapChain();
+
+	//create a vertex buffer 
+	//	and move the vertex data to it 
+	//	so the GPU is able to access it.
+	void createVertexBuffer();
+
+	//Graphics cards can offer different types of memory to allocate from.
+	//Each type of memory varies 
+	//	in terms of allowed operations 
+	//	and performance characteristics.
+	//We need to combine the requirements of the buffer 
+	//	and our own application requirements to find the right type of memory to use.
+	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
 private:
 	GLFWwindow*							mWindow;
 	VkQueue								mGraphicsQueue;
@@ -195,6 +209,9 @@ private:
 	//	all of the hard work of setting up the drawing commands 
 	//	can be done in advance and in multiple threads.
 	VkCommandPool						mCommandPool;
+	VkBuffer							mVertexBuffer;
+	VkDeviceMemory						mVertexBufferMemory;
+
 	std::vector<VkCommandBuffer>		mCommandBuffers;
 
 	//We'll need one semaphore to signal that 
