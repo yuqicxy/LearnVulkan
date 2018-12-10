@@ -95,8 +95,8 @@ struct Vertex
 
 const std::vector<Vertex> vertices = {
 	{{ 0.0f,-0.5f},{1.0f,0.0f,0.0f}},
-	{{ 0.5f, 0.5f},{0.0f,1.0f,0.0f}},
-	{{-0.5f, 0.5f},{0.0f,0.0f,1.0f}}
+	{{ 0.5f, 0.5f},{1.0f,1.0f,0.0f}},
+	{{-0.5f, 0.5f},{1.0f,1.0f,1.0f}}
 };
 
 #undef max
@@ -313,7 +313,13 @@ void HelloTriangleApplication::cleanUp()
 {
 	cleanupSwapChain();
 	
+
 	vkDestroyBuffer(mDevice, mVertexBuffer, nullptr);
+	//Memory that is bound to a buffer object 
+	//	may be freed once the buffer is no longer used, 
+	//so let's free it after the buffer has been destroyed:
+	vkFreeMemory(mDevice, mVertexBufferMemory, nullptr);
+
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 	{
@@ -1335,6 +1341,45 @@ void HelloTriangleApplication::createVertexBuffer()
 	//		Bit field of the memory types
 	//		that are suitable for the buffer.
 
+
+	VkMemoryAllocateInfo alloInfo = {};
+	alloInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloInfo.allocationSize = memRequirements.size;
+	alloInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	if (vkAllocateMemory(mDevice, &alloInfo, nullptr, &mVertexBufferMemory) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate vertex buffer memory£¡");
+	}
+
+	//If memory allocation was successful, then we can now associate this memory with the buffer using vkBindBufferMemory:
+	//Since this memory is allocated specifically 
+	//	for this the vertex buffer, 
+	//the offset is simply 0. 
+	//If the offset is non - zero, 
+	//	then it is required to be divisible 
+	//	by memRequirements.alignment.
+	vkBindBufferMemory(mDevice, mVertexBuffer, mVertexBufferMemory, 0);
+
+	void *data;
+	vkMapMemory(mDevice, mVertexBufferMemory, 0, bufferInfo.size, 0, &data);
+	//memcpy the vertex data to the mapped memory 
+	//	and unmap it again using vkUnmapMemory
+	memcpy(data, vertices.data(), (size_t)bufferInfo.size);
+	vkUnmapMemory(mDevice, mVertexBufferMemory);
+	//Unfortunately the driver may not immediately 
+	//	copy the data into the buffer memory, 
+	//	for example because of caching.
+	//It is also possible that 
+	//	writes to the buffer 
+	//	are not visible in the mapped memory yet.
+	//There are two ways to deal with that problem :
+	//	Use a memory heap that is host coherent, 
+	//		indicated with VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	//	Call vkFlushMappedMemoryRanges to 
+	//		after writing to the mapped memory,
+	//		and call vkInvalidateMappedMemoryRanges 
+	//		before reading from the mapped memory
 }
 
 uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
@@ -1360,7 +1405,8 @@ uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, VkMemoryP
 	//that is suitable for the buffer itself:
 	for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i)
 	{
-		if (typeFilter & (1 << i))
+		if (typeFilter & (1 << i)
+			&& (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
 		{
 			return i;
 		}
@@ -1444,47 +1490,50 @@ void HelloTriangleApplication::createCommandBuffer()
 
 		vkCmdBeginRenderPass(mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		
-		//The render pass can now begin.
-		//All of the functions that 
-		//		record commands can be recognized 
-		//		by their vkCmd prefix
-		//
-		//The first parameter for every command 
-		//		is always the command buffer 
-		//		to record the command to.
-		//
-		//The second parameter specifies 
-		//		the details of the render pass 
-		//		we've just provided.
-		//
-		//The final parameter controls 
-		//		how the drawing commands 
-		//		within the render pass will be provided.
-		//
-		//It can have one of two values :
-		//		VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded
-		//			in the primary command buffer itself 
-		//			and no secondary command buffers will be executed.
-		//		VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS: The render pass commands 
-		//			will be executed from secondary command buffers.
-		//		
-		//************************************************************************/
-		//*		Basic drawing commands
-		//************************************************************************/
-		// bind the graphics pipeline:
-		//	The second parameter specifies 
-		//	if the pipeline object is a graphics or compute pipeline. 
-		vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+			//The render pass can now begin.
+			//All of the functions that 
+			//		record commands can be recognized 
+			//		by their vkCmd prefix
+			//
+			//The first parameter for every command 
+			//		is always the command buffer 
+			//		to record the command to.
+			//
+			//The second parameter specifies 
+			//		the details of the render pass 
+			//		we've just provided.
+			//
+			//The final parameter controls 
+			//		how the drawing commands 
+			//		within the render pass will be provided.
+			//
+			//It can have one of two values :
+			//		VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded
+			//			in the primary command buffer itself 
+			//			and no secondary command buffers will be executed.
+			//		VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS: The render pass commands 
+			//			will be executed from secondary command buffers.
+			//		
+			//************************************************************************/
+			//*		Basic drawing commands
+			//************************************************************************/
+			// bind the graphics pipeline:
+			//	The second parameter specifies 
+			//	if the pipeline object is a graphics or compute pipeline. 
+			vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 
-		//vertexCount: Even though we don't have a vertex buffer, 
-		//			we technically still have 3 vertices to draw.
-		//instanceCount : Used for instanced rendering, 
-		//			use 1 if you're not doing that.
-		//firstVertex : Used as an offset into the vertex buffer,
-		//			defines the lowest value of gl_VertexIndex.
-		//firstInstance : Used as an offset for instanced rendering, 
-		//			defines the lowest value of gl_InstanceIndex.
-		vkCmdDraw(mCommandBuffers[i], 3, 1, 0, 0);
+			VkBuffer vertexBuffers[] = { mVertexBuffer };
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(mCommandBuffers[i], 0, 1, vertexBuffers, offsets);
+			//vertexCount: Even though we don't have a vertex buffer, 
+			//			we technically still have 3 vertices to draw.
+			//instanceCount : Used for instanced rendering, 
+			//			use 1 if you're not doing that.
+			//firstVertex : Used as an offset into the vertex buffer,
+			//			defines the lowest value of gl_VertexIndex.
+			//firstInstance : Used as an offset for instanced rendering, 
+			//			defines the lowest value of gl_InstanceIndex.
+			vkCmdDraw(mCommandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
 		vkCmdEndRenderPass(mCommandBuffers[i]);
 
