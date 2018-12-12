@@ -181,7 +181,12 @@ private:
 	//We need to combine the requirements of the buffer 
 	//	and our own application requirements to find the right type of memory to use.
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	
+	//abstract create buffer
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory);
 
+	//We're now going to write a function to copy the contents from one buffer to another, called copyBuffer.
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 private:
 	GLFWwindow*							mWindow;
 	VkQueue								mGraphicsQueue;

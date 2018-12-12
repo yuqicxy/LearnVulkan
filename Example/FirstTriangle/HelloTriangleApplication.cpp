@@ -1290,83 +1290,35 @@ void HelloTriangleApplication::createCommandPool()
 
 void HelloTriangleApplication::createVertexBuffer()
 {
-	//Creating a buffer requires us to fill a VkBufferCreateInfo structure
-	VkBufferCreateInfo bufferInfo = {};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	//size specifies the size of the buffer in bytes. 
-	bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-	//usage indicates for which purposes the data in the buffer 
-	//	is going to be used.
-	//It is possible to specify multiple purposes 
-	//	using a bitwise or.
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	//Just like the images in the swap chain, 
-	//	buffers can also be owned by a specific queue family 
-	//	or be shared between multiple at the same time.
-	//The buffer will only be used from the graphics queue, 
-	//	so we can stick to exclusive access.
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	//The flags parameter is used to configure sparse buffer memory, 
-	//which is not relevant right now.
-	//We'll leave it at the default value of 0.
-	bufferInfo.flags = 0;
+	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-	//create the buffer with vkCreateBuffer. 
-	//Define a class member to hold the buffer handle 
-	//	and call it vertexBuffer.
-	if (vkCreateBuffer(mDevice, &bufferInfo, nullptr, &mVertexBuffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create vertex buffer!");
-	}
-
-	/************************************************************************/
-	/*		Memory requirements
-	/************************************************************************/
-	//The buffer has been created, 
-	//but it doesn't actually have any memory assigned to it yet. 
-	VkMemoryRequirements memRequirements;
-	//query its memory requirements 
-	vkGetBufferMemoryRequirements(mDevice, mVertexBuffer, &memRequirements);
-	
-	//The VkMemoryRequirements struct has three fields :
-	//	size: 
-	//		The size of the required amount of memory in bytes, 
-	//		may differ from bufferInfo.size.
-	//	alignment: 
-	//		The offset in bytes where the buffer begins 
-	//		in the allocated region of memory, 
-	//		depends on bufferInfo.usage 
-	//		and bufferInfo.flags.
-	//	memoryTypeBits:
-	//		Bit field of the memory types
-	//		that are suitable for the buffer.
-
-
-	VkMemoryAllocateInfo alloInfo = {};
-	alloInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	alloInfo.allocationSize = memRequirements.size;
-	alloInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	if (vkAllocateMemory(mDevice, &alloInfo, nullptr, &mVertexBufferMemory) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate vertex buffer memory£¡");
-	}
-
-	//If memory allocation was successful, then we can now associate this memory with the buffer using vkBindBufferMemory:
-	//Since this memory is allocated specifically 
-	//	for this the vertex buffer, 
-	//the offset is simply 0. 
-	//If the offset is non - zero, 
-	//	then it is required to be divisible 
-	//	by memRequirements.alignment.
-	vkBindBufferMemory(mDevice, mVertexBuffer, mVertexBufferMemory, 0);
+	VkBuffer stagingBuffer;
+	VkDeviceMemory	stagingBufferMemory;
+	//stagingBuffer with stagingBufferMemory for mapping and copying the vertex data.
+	//VK_BUFFER_USAGE_TRANSFER_SRC_BIT: 
+	//		Buffer can be used as source in a memory transfer operation.
+	//VK_BUFFER_USAGE_TRANSFER_DST_BIT:
+	//		Buffer can be used as destination in a memory transfer operation.
+	//
+	//The vertexBuffer is now allocated from a memory type that is device local, which generally means that we're not able to use vkMapMemory. 
+	//
+	//However, we can copy data from the stagingBuffer to the vertexBuffer. 
+	//We have to indicate that we intend to do that 
+	//	by specifying the transfer source flag for the stagingBuffer 
+	//	and the transfer destination flag for the vertexBuffer, 
+	//	along with the vertex buffer usage flag.
+	//
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+		, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT 
+		| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		, stagingBuffer, stagingBufferMemory);
 
 	void *data;
-	vkMapMemory(mDevice, mVertexBufferMemory, 0, bufferInfo.size, 0, &data);
+	vkMapMemory(mDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
 	//memcpy the vertex data to the mapped memory 
 	//	and unmap it again using vkUnmapMemory
-	memcpy(data, vertices.data(), (size_t)bufferInfo.size);
-	vkUnmapMemory(mDevice, mVertexBufferMemory);
+	memcpy(data, vertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(mDevice, stagingBufferMemory);
 	//Unfortunately the driver may not immediately 
 	//	copy the data into the buffer memory, 
 	//	for example because of caching.
@@ -1380,6 +1332,15 @@ void HelloTriangleApplication::createVertexBuffer()
 	//		after writing to the mapped memory,
 	//		and call vkInvalidateMappedMemoryRanges 
 	//		before reading from the mapped memory
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mVertexBuffer, mVertexBufferMemory);
+	copyBuffer(stagingBuffer, mVertexBuffer, bufferSize);
+	
+	//After copying the data from the staging buffer to the device buffer, 
+	//		we should clean it up :
+	vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
+	vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
 }
 
 uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
@@ -1879,3 +1840,161 @@ void HelloTriangleApplication::recreateSwapChain()
 }
 
 
+//It should be noted that in a real world application,
+//		you're not supposed to actually call vkAllocateMemory for every individual buffer.
+//The maximum number of simultaneous memory allocations is limited by the maxMemoryAllocationCount physical device limit,
+//		which may be as low as 4096 even on high end hardware like an NVIDIA GTX 1080.
+//The right way to allocate memory for a large number of objects at the same time
+//		is to create a custom allocator that splits up a single allocation
+//		among many different objects by using the offset parameters
+//		that we've seen in many functions.
+void HelloTriangleApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory)
+{
+	//Creating a buffer requires us to fill a VkBufferCreateInfo structure
+	VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	//size specifies the size of the buffer in bytes. 
+	bufferInfo.size = size;
+	//usage indicates for which purposes the data in the buffer 
+	//	is going to be used.
+	//It is possible to specify multiple purposes 
+	//	using a bitwise or.
+	bufferInfo.usage = usage;
+	//Just like the images in the swap chain, 
+	//	buffers can also be owned by a specific queue family 
+	//	or be shared between multiple at the same time.
+	//The buffer will only be used from the graphics queue, 
+	//	so we can stick to exclusive access.
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	//The flags parameter is used to configure sparse buffer memory, 
+	//which is not relevant right now.
+	//We'll leave it at the default value of 0.
+	bufferInfo.flags = 0;
+
+	//create the buffer with vkCreateBuffer. 
+	//Define a class member to hold the buffer handle 
+	//	and call it vertexBuffer.
+	if (vkCreateBuffer(mDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create vertex buffer!");
+	}
+
+	/************************************************************************/
+	/*		Memory requirements
+	/************************************************************************/
+	//The buffer has been created, 
+	//but it doesn't actually have any memory assigned to it yet. 
+	VkMemoryRequirements memRequirements;
+	//query its memory requirements 
+	vkGetBufferMemoryRequirements(mDevice, buffer, &memRequirements);
+
+	//The VkMemoryRequirements struct has three fields :
+	//	size: 
+	//		The size of the required amount of memory in bytes, 
+	//		may differ from bufferInfo.size.
+	//	alignment: 
+	//		The offset in bytes where the buffer begins 
+	//		in the allocated region of memory, 
+	//		depends on bufferInfo.usage 
+	//		and bufferInfo.flags.
+	//	memoryTypeBits:
+	//		Bit field of the memory types
+	//		that are suitable for the buffer.
+
+
+	VkMemoryAllocateInfo alloInfo = {};
+	alloInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloInfo.allocationSize = memRequirements.size;
+	alloInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+	if (vkAllocateMemory(mDevice, &alloInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate vertex buffer memory£¡");
+	}
+
+	//If memory allocation was successful, then we can now associate this memory with the buffer using vkBindBufferMemory:
+	//Since this memory is allocated specifically 
+	//	for this the vertex buffer, 
+	//the offset is simply 0. 
+	//If the offset is non - zero, 
+	//	then it is required to be divisible 
+	//	by memRequirements.alignment.
+	vkBindBufferMemory(mDevice, buffer, bufferMemory, 0);
+}
+
+void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+	//Memory transfer operations are executed using command buffers, 
+	//just like drawing commands.
+	//Therefore we must first allocate a temporary command buffer.
+	//You may wish to create a separate command pool for these kinds of short-lived buffers, 
+	//because the implementation may be able to 
+	//apply memory allocation optimizations.
+	//You should use the VK_COMMAND_POOL_CREATE_TRANSIENT_BIT flag 
+	//during command pool generation in that case.
+
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = mCommandPool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(mDevice, &allocInfo, &commandBuffer);
+
+	//And immediately start recording the command buffer:
+	//The VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT flag that 
+	//	we used for the drawing command buffers is not necessary here, 
+	//because we're only going to use the command buffer once 
+	//	and wait with returning from the function 
+	//	until the copy operation has finished executing. 
+	//It's good practice to tell the driver 
+	//	about our intent using VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+	
+	VkBufferCopy copyRegion = {};
+	copyRegion.srcOffset = 0;
+	copyRegion.dstOffset = 0;
+	copyRegion.size = size;
+	//Contents of buffers are transferred using the vkCmdCopyBuffer command.
+	//It takes the source and destination buffers as arguments, 
+	//	and an array of regions to copy.
+	//The regions are defined in VkBufferCopy structs 
+	//	and consist of a source buffer offset,
+	//	destination buffer offset and size.
+	//It is not possible to specify VK_WHOLE_SIZE here, 
+	//	unlike the vkMapMemory command.
+	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+	//This command buffer only contains the copy command, so we can stop recording right after that.
+	vkEndCommandBuffer(commandBuffer);
+	
+	//Now execute the command buffer to complete the transfer :
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	
+	//Unlike the draw commands, 
+	//there are no events we need to wait on this time. 
+	//We just want to execute the transfer on the buffers immediately. 
+	//There are again two possible ways to wait on this transfer to complete. 
+	//We could use a fence and wait with vkWaitForFences, 
+	//		or simply wait for the transfer queue to become idle with vkQueueWaitIdle. 
+	//A fence would allow you to schedule multiple transfers simultaneously 
+	//		and wait for all of them complete, 
+	///		instead of executing one at a time. 
+	//That may give the driver more opportunities to optimize.
+	vkQueueWaitIdle(mGraphicsQueue);
+
+	//Don't forget to clean up the command buffer used for the transfer operation.
+	vkFreeCommandBuffers(mDevice, mCommandPool, 1, &commandBuffer);
+
+
+}
