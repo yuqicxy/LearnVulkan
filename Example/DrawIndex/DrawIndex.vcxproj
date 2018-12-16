@@ -18,13 +18,20 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\FragShader.frag" />
+    <None Include="Shaders\VertexShader.vert" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{82FCDA7C-55B2-4DD8-AAF4-CC347A79BC71}</ProjectGuid>
+    <ProjectGuid>{E8777C9A-1442-4FAF-BB58-8AD6983033CF}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>FirstTriangle</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
-    <ProjectName>FirstTriangle</ProjectName>
+    <ProjectName>DrawIndex</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -165,18 +172,6 @@
       <AdditionalDependencies>glfw3dll.lib;glm_static.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <None Include="Shaders\FragShader.frag" />
-    <None Include="Shaders\VertexShader.vert" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="HelloTriangleApplication.h" />
-    <ClInclude Include="ReadFile.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="FirstTriangle.cpp" />
-    <ClCompile Include="HelloTriangleApplication.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

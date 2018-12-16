@@ -174,6 +174,8 @@ private:
 	//	so the GPU is able to access it.
 	void createVertexBuffer();
 
+	void createIndexBuffer();
+
 	//Graphics cards can offer different types of memory to allocate from.
 	//Each type of memory varies 
 	//	in terms of allowed operations 
@@ -214,8 +216,12 @@ private:
 	//	all of the hard work of setting up the drawing commands 
 	//	can be done in advance and in multiple threads.
 	VkCommandPool						mCommandPool;
+	
 	VkBuffer							mVertexBuffer;
 	VkDeviceMemory						mVertexBufferMemory;
+	
+	VkBuffer							mIndexBuffer;
+	VkDeviceMemory						mIndexBufferMemory;
 
 	std::vector<VkCommandBuffer>		mCommandBuffers;
 

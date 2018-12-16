@@ -94,9 +94,20 @@ struct Vertex
 };
 
 const std::vector<Vertex> vertices = {
-	{{ 0.0f,-0.5f},{1.0f,0.0f,0.0f}},
-	{{ 0.5f, 0.5f},{1.0f,1.0f,0.0f}},
+	{{-0.5f,-0.5f},{1.0f,0.0f,0.0f}},
+	{{ 0.5f,-0.5f},{0.0f,1.0f,0.0f}},
+	{{ 0.5f, 0.5f},{0.0f,0.0f,1.0f}},
 	{{-0.5f, 0.5f},{1.0f,1.0f,1.0f}}
+};
+
+//const std::vector<Vertex> vertices = {
+//	{ { 0.0f,-0.5f },{ 1.0f,0.0f,0.0f } },
+//	{ { 0.5f, 0.5f },{ 1.0f,1.0f,0.0f } },
+//	{ { -0.5f, 0.5f },{ 1.0f,1.0f,1.0f } }
+//};
+
+const std::vector<uint64_t> indices = {
+	0, 1, 2, 2, 3, 0
 };
 
 #undef max
@@ -194,6 +205,7 @@ void HelloTriangleApplication::initVulkan()
 	createFrameBuffers();
 	createCommandPool();
 	createVertexBuffer();
+	createIndexBuffer();
 	createCommandBuffer();
 	//createSemaphore();
 	createSyncObjects();
@@ -320,6 +332,8 @@ void HelloTriangleApplication::cleanUp()
 	//so let's free it after the buffer has been destroyed:
 	vkFreeMemory(mDevice, mVertexBufferMemory, nullptr);
 
+	vkDestroyBuffer(mDevice, mIndexBuffer, nullptr);
+	vkFreeMemory(mDevice, mIndexBufferMemory, nullptr);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 	{
@@ -1343,6 +1357,31 @@ void HelloTriangleApplication::createVertexBuffer()
 	vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
 }
 
+void HelloTriangleApplication::createIndexBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(mDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, indices.data(), (size_t)bufferSize);
+	vkUnmapMemory(mDevice, stagingBufferMemory);
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		mIndexBuffer, mIndexBufferMemory);
+
+	copyBuffer(stagingBuffer, mIndexBuffer, bufferSize);
+
+	vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
+	vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
+}
+
 uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
@@ -1486,6 +1525,9 @@ void HelloTriangleApplication::createCommandBuffer()
 			VkBuffer vertexBuffers[] = { mVertexBuffer };
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(mCommandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+			vkCmdBindIndexBuffer(mCommandBuffers[i], mIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+			
 			//vertexCount: Even though we don't have a vertex buffer, 
 			//			we technically still have 3 vertices to draw.
 			//instanceCount : Used for instanced rendering, 
@@ -1494,7 +1536,8 @@ void HelloTriangleApplication::createCommandBuffer()
 			//			defines the lowest value of gl_VertexIndex.
 			//firstInstance : Used as an offset for instanced rendering, 
 			//			defines the lowest value of gl_InstanceIndex.
-			vkCmdDraw(mCommandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+			//vkCmdDraw(mCommandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+			vkCmdDrawIndexed(mCommandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(mCommandBuffers[i]);
 
@@ -1869,7 +1912,7 @@ void HelloTriangleApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlag
 	//The flags parameter is used to configure sparse buffer memory, 
 	//which is not relevant right now.
 	//We'll leave it at the default value of 0.
-	bufferInfo.flags = 0;
+	//bufferInfo.flags = 0;
 
 	//create the buffer with vkCreateBuffer. 
 	//Define a class member to hold the buffer handle 
@@ -1958,9 +2001,10 @@ void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
 	vkBeginCommandBuffer(commandBuffer, &beginInfo);
 	
 	VkBufferCopy copyRegion = {};
-	copyRegion.srcOffset = 0;
-	copyRegion.dstOffset = 0;
+	//copyRegion.srcOffset = 0;
+	//copyRegion.dstOffset = 0;
 	copyRegion.size = size;
+	
 	//Contents of buffers are transferred using the vkCmdCopyBuffer command.
 	//It takes the source and destination buffers as arguments, 
 	//	and an array of regions to copy.
@@ -1995,6 +2039,4 @@ void HelloTriangleApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer
 
 	//Don't forget to clean up the command buffer used for the transfer operation.
 	vkFreeCommandBuffers(mDevice, mCommandPool, 1, &commandBuffer);
-
-
 }
