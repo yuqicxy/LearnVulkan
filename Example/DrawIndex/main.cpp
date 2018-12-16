@@ -2,7 +2,6 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.h>
 
 #include <iostream>
 #include <fstream>
@@ -48,6 +47,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 	if (func != nullptr) {
 		func(instance, callback, pAllocator);
+		std::cout << "Destroy Debug Util" << std::endl;
 	}
 }
 
@@ -312,6 +312,7 @@ private:
 		if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &callback) != VK_SUCCESS) {
 			throw std::runtime_error("failed to set up debug callback!");
 		}
+		std::cout << "create Debug Util" << std::endl;
 	}
 
 	void createSurface() {

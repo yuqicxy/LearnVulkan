@@ -1536,8 +1536,8 @@ void HelloTriangleApplication::createCommandBuffer()
 			//			defines the lowest value of gl_VertexIndex.
 			//firstInstance : Used as an offset for instanced rendering, 
 			//			defines the lowest value of gl_InstanceIndex.
-			//vkCmdDraw(mCommandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-			vkCmdDrawIndexed(mCommandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+			vkCmdDraw(mCommandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+			//vkCmdDrawIndexed(mCommandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(mCommandBuffers[i]);
 

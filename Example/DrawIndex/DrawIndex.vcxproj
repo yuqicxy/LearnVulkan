@@ -82,13 +82,13 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <TargetName>$(ProjectName)d</TargetName>
-    <IncludePath>E:\GLFW\include;E:\GLM;C:\VulkanSDK\1.1.82.0\Include;$(IncludePath)</IncludePath>
+    <IncludePath>E:\GLFW\include;E:\GLM;$(VULKAN_SDK)\Include;$(IncludePath)</IncludePath>
     <LibraryPath>E:\GLM\glm\$(Configuration);E:\GLFW\src\$(Configuration);C:\VulkanSDK\1.1.82.0\Lib32;$(LibraryPath)</LibraryPath>
     <IntDir>$(SolutionDir)ipch\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>E:\GLFW\include;E:\GLM;C:\VulkanSDK\1.1.82.0\Include;$(IncludePath)</IncludePath>
+    <IncludePath>E:\GLFW\include;E:\GLM;$(VULKAN_SDK)\Include;$(IncludePath)</IncludePath>
     <LibraryPath>E:\GLM\glm\$(Configuration);E:\GLFW\src\$(Configuration);C:\VulkanSDK\1.1.82.0\Lib;$(LibraryPath)</LibraryPath>
     <IntDir>$(SolutionDir)ipch\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
@@ -97,13 +97,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>E:\GLFW\include;E:\GLM;C:\VulkanSDK\1.1.82.0\Include;$(IncludePath)</IncludePath>
+    <IncludePath>E:\GLFW\include;E:\GLM;$(VULKAN_SDK)\Include;$(IncludePath)</IncludePath>
     <LibraryPath>E:\GLM\glm\$(Configuration);E:\GLFW\src\$(Configuration);C:\VulkanSDK\1.1.82.0\Lib32;$(LibraryPath)</LibraryPath>
     <IntDir>$(SolutionDir)ipch\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>E:\GLFW\include;E:\GLM;C:\VulkanSDK\1.1.82.0\Include;$(IncludePath)</IncludePath>
+    <IncludePath>E:\GLFW\include;E:\GLM;$(VULKAN_SDK)\Include;$(IncludePath)</IncludePath>
     <LibraryPath>E:\GLM\glm\$(Configuration);E:\GLFW\src\$(Configuration);C:\VulkanSDK\1.1.82.0\Lib;$(LibraryPath)</LibraryPath>
     <IntDir>$(SolutionDir)ipch\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
