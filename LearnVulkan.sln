@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DrawIndex", "Example\DrawIn
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FirstTriangle", "Example\FirstTriangle\FirstTriangle.vcxproj", "{82FCDA7C-55B2-4DD8-AAF4-CC347A79BC71}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unfiform", "Example\Uniform\Uniform.vcxproj", "{C60690C5-550B-4227-8A91-41536DAA867C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -41,6 +43,14 @@ Global
 		{82FCDA7C-55B2-4DD8-AAF4-CC347A79BC71}.Release|x64.Build.0 = Release|x64
 		{82FCDA7C-55B2-4DD8-AAF4-CC347A79BC71}.Release|x86.ActiveCfg = Release|Win32
 		{82FCDA7C-55B2-4DD8-AAF4-CC347A79BC71}.Release|x86.Build.0 = Release|Win32
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Debug|x64.ActiveCfg = Debug|x64
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Debug|x64.Build.0 = Debug|x64
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Debug|x86.ActiveCfg = Debug|Win32
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Debug|x86.Build.0 = Debug|Win32
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Release|x64.ActiveCfg = Release|x64
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Release|x64.Build.0 = Release|x64
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Release|x86.ActiveCfg = Release|Win32
+		{C60690C5-550B-4227-8A91-41536DAA867C}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
