@@ -1,6 +1,6 @@
 #include "HelloTriangleApplication.h"
 
-int main()
+int main(int argv,char *argc)
 {
 	HelloTriangleApplication app;
 	try

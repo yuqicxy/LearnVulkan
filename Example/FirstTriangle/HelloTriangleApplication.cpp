@@ -184,6 +184,7 @@ void HelloTriangleApplication::initWindow()
 	mWindow = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 
 	glfwSetWindowUserPointer(mWindow, this);
+	glfwMakeContextCurrent(mWindow);  //将我们窗口的上下文设置为当前线程的主上下文
 
 	//Now to actually detect resizes 
 	//		we can use the glfwSetFramebufferSizeCallback function 
@@ -827,8 +828,8 @@ void HelloTriangleApplication::createImageViews()
 
 void HelloTriangleApplication::createGraphicsPipeline()
 {
-	std::vector<char> vertShaderCode = readFile("Shaders/vert.spv");
-	std::vector<char> fragShaderCode = readFile("Shaders/frag.spv");
+	std::vector<char> vertShaderCode = readFile("F:\\LearnVulkan\\Example\\FirstTriangle\\Shaders\\vert.spv");
+	std::vector<char> fragShaderCode = readFile("F:\\LearnVulkan\\Example\\FirstTriangle\\Shaders\\frag.spv");
 	
 	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

@@ -9,7 +9,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DrawIndex", "Example\DrawIn
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FirstTriangle", "Example\FirstTriangle\FirstTriangle.vcxproj", "{82FCDA7C-55B2-4DD8-AAF4-CC347A79BC71}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unfiform", "Example\Uniform\Uniform.vcxproj", "{C60690C5-550B-4227-8A91-41536DAA867C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Uniform", "Example\Uniform\Uniform.vcxproj", "{C60690C5-550B-4227-8A91-41536DAA867C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

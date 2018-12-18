@@ -66,11 +66,13 @@ void UniformApplication ::initVulkan()
 	createSwapChain();
 	createImageViews();
 	createRenderPass();
+	createDescriptorSetLayout();
 	createGraphicsPipeline();
 	createFramebuffers();
 	createCommandPool();
 	createVertexBuffer();
 	createIndexBuffer();
+	createUniformBuffers();
 	createCommandBuffers();
 	createSyncObjects();
 }
@@ -110,6 +112,13 @@ void UniformApplication ::cleanupSwapChain()
 void UniformApplication ::cleanup()
 {
 	cleanupSwapChain();
+	
+	vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
+	for (size_t i = 0; i < swapChainImages.size(); ++i)
+	{
+		vkDestroyBuffer(device, mUniformBuffers[i], nullptr);
+		vkFreeMemory(device, mUniformBuffersMemory[i], nullptr);
+	}
 
 	vkDestroyBuffer(device, indexBuffer, nullptr);
 	vkFreeMemory(device, indexBufferMemory, nullptr);
@@ -535,6 +544,10 @@ void UniformApplication ::createGraphicsPipeline()
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 0;
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
+	
+	//need to specify the descriptor set layout 
+	//	during pipeline creation to tell Vulkan which descriptors the shaders will be using.
+	pipelineLayoutInfo.pSetLayouts = &mDescriptorSetLayout;
 
 	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create pipeline layout!");
@@ -779,6 +792,49 @@ void UniformApplication ::createCommandBuffers()
 	}
 }
 
+void UniformApplication::createDescriptorSetLayout()
+{
+	VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+	uboLayoutBinding.binding			= 0; // specify the binding used in the shader 
+	uboLayoutBinding.descriptorType		= VK_DESCRIPTOR_TYPE_SAMPLER;	//the type of descriptor
+	uboLayoutBinding.descriptorCount	= 1;							//descriptorCount specifies the number of values in the array
+	//The stageFlags field can be a combination of VkShaderStageFlagBits values or the value VK_SHADER_STAGE_ALL_GRAPHICS
+	uboLayoutBinding.stageFlags			= VK_SHADER_STAGE_VERTEX_BIT;
+	//The pImmutableSamplers field is only relevant for image sampling related descriptors,
+	uboLayoutBinding.pImmutableSamplers	= nullptr;//optional
+	
+	// a single VkDescriptorSetLayout already includes all of the bindings. 
+	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = 1;
+	layoutInfo.pBindings = &uboLayoutBinding;
+	if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create descriptor set layout!");
+	}
+}
+
+void UniformApplication::createUniformBuffers()
+{
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+	mUniformBuffers.resize(swapChainImages.size());
+	mUniformBuffersMemory.resize(swapChainImages.size());
+	
+	//We're going to write a separate function 
+	//	that updates the uniform buffer with a new transformation every frame, 
+	//	so there will be no vkMapMemory here. 
+	//
+	//The uniform data will be used for all draw calls, 
+	//	so the buffer containing it should only be destroyed at the end:
+	for (size_t i = 0;i < swapChainImages.size(); ++i)
+	{
+		createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+			, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			, mUniformBuffers[i], mUniformBuffersMemory[i]);
+	}
+}
+
 void UniformApplication ::createSyncObjects() 
 {
 	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -803,6 +859,40 @@ void UniformApplication ::createSyncObjects()
 	}
 }
 
+void UniformApplication::updateUniformBuffer(uint32_t imageIndex)
+{
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	UniformBufferObject ubo = {};
+	ubo.mModel	= glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.mView	= glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.mProj	= glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+	//GLM was originally designed for OpenGL, 
+	//	where the Y coordinate of the clip coordinates is inverted.
+	//
+	//The easiest way to compensate for that is to flip the sign 
+	//	on the scaling factor of the Y axis in the projection matrix.
+	//
+	//If you don't do this, then the image will be rendered upside down.
+	ubo.mProj[1][1] *= -1;
+
+	//Using a UBO this way is not the most efficient way 
+	//	to pass frequently changing values to the shader.
+	//A more efficient way to pass a small buffer of data to shaders are push constants.
+	//We may look at these in a future chapter.
+	//
+	//In the next part we'll look at descriptor sets, 
+	//	which will actually bind the VkBuffers to the uniform buffer descriptors 
+	//	so that the shader can access this transformation data.
+	void* data;
+	vkMapMemory(device, mUniformBuffersMemory[imageIndex], 0, sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
+	vkUnmapMemory(device, mUniformBuffersMemory[imageIndex]);
+}
+
 void UniformApplication ::drawFrame() 
 {
 	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
@@ -817,6 +907,8 @@ void UniformApplication ::drawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
+
+	updateUniformBuffer(imageIndex);
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

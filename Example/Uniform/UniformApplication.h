@@ -1,6 +1,9 @@
 #pragma once
 
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <vulkan/vulkan.h>
@@ -15,6 +18,7 @@
 #include <array>
 #include <optional>
 #include <set>
+#include <chrono>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -93,6 +97,29 @@ const std::vector<uint16_t> indices = {
 	0, 1, 2, 2, 3, 0
 };
 
+//resource descriptors. 
+//A descriptor is a way for shaders to 
+//	freely access resources like buffers and images. 
+//We're going to set up a buffer 
+//	that contains the transformation matrices 
+//	and have the vertex shader access them through a descriptor. 
+//
+//Usage of descriptors consists of three parts :
+//	1.Specify a descriptor layout during pipeline creation
+//	2.Allocate a descriptor set from a descriptor pool
+//	3.Bind the descriptor set during rendering
+//
+//The descriptor layout specifies the types of resources that are going to be accessed by the pipeline,
+//
+//A descriptor set specifies the actual buffer or image resources that will be bound to the descriptors.
+//The descriptor set is then bound for the drawing commands just like the vertex buffers and framebuffer.
+struct UniformBufferObject
+{
+	glm::mat4 mModel;
+	glm::mat4 mView;
+	glm::mat4 mProj;
+};
+
 class UniformApplication 
 {
 public:
@@ -149,8 +176,14 @@ private:
 	
 	void createSyncObjects();
 	
+	void createDescriptorSetLayout();
+
+	void createUniformBuffers();
+
 	void drawFrame();
 	
+	void updateUniformBuffer(uint32_t imageIndex);
+
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -198,6 +231,7 @@ private:
 	std::vector<VkFramebuffer>		swapChainFramebuffers;
 
 	VkRenderPass					renderPass;
+	VkDescriptorSetLayout			mDescriptorSetLayout;
 	VkPipelineLayout				pipelineLayout;
 	VkPipeline						graphicsPipeline;
 
@@ -207,6 +241,20 @@ private:
 	VkDeviceMemory					vertexBufferMemory;
 	VkBuffer						indexBuffer;
 	VkDeviceMemory					indexBufferMemory;
+
+	//Uniform buffer
+	//We're going to copy new data to the uniform buffer every frame, 
+	//	so it doesn't really make any sense to have a staging buffer.
+	//
+	//It would just add extra overhead in this case 
+	//	and likely degrade performance instead of improving it.
+	//
+	//We should have multiple buffers, 
+	//	because multiple frames may be in flight at the same time 
+	//	and we don't want to update the buffer 
+	//	in preparation of the next frame while a previous one is still reading from it! 
+	std::vector<VkBuffer>			mUniformBuffers;
+	std::vector<VkDeviceMemory>		mUniformBuffersMemory;
 
 	std::vector<VkCommandBuffer>	commandBuffers;
 
