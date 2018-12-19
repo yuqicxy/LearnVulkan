@@ -177,6 +177,22 @@ private:
 	void createSyncObjects();
 	
 	void createDescriptorSetLayout();
+	
+	//create a descriptor set for each VkBuffer resource 
+	//		to bind it to the uniform buffer descriptor.
+	//
+	//Descriptor sets can't be created directly, 
+	//		they must be allocated from a pool like command buffers. 
+	void createDescriptorPool();
+	
+	//A descriptor set allocation is described with a VkDescriptorSetAllocateInfo struct.
+	//You need to specify the descriptor pool to allocate from, 
+	//	the number of descriptor sets to allocate, 
+	//	and the descriptor layout to base them on:
+	//You need to specify the descriptor pool to allocate from, 
+	//	the number of descriptor sets to allocate, 
+	//	and the descriptor layout to base them on:
+	void createDescriptorSets();
 
 	void createUniformBuffers();
 
@@ -232,6 +248,9 @@ private:
 
 	VkRenderPass					renderPass;
 	VkDescriptorSetLayout			mDescriptorSetLayout;
+	VkDescriptorPool				mDescriptorPool;
+	std::vector<VkDescriptorSet>	mDescriptorSets;
+
 	VkPipelineLayout				pipelineLayout;
 	VkPipeline						graphicsPipeline;
 
